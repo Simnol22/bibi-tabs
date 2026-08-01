@@ -1,0 +1,23 @@
+# node
+node_modules/
+.svelte-kit/
+build/
+dist/
+*.log
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# secrets & local config
+.env
+.env.*
+!.env.example
+
+# editors / os
+.DS_Store
+.idea/
+*.swp
