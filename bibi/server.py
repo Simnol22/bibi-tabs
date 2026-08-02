@@ -51,19 +51,40 @@ class Server:
 
     def song_page(self, slug: str) -> str | None:
         path = self.library.path_for_slug(slug)
-        return None if path is None else self.renderer.render(self.library.load(path))
+        if path is None:
+            return None
+        return self.renderer.render(self.library.load(path), home="/", saved=True)
 
-    def add(self, url: str) -> str:
-        """Fetch and save, returning the slug to redirect to.
+    def view_page(self, url: str) -> str:
+        """Read a song without keeping it. Opening is not the same as wanting.
 
-        matches() is checked before any request goes out: this endpoint is a
-        GET on localhost, so any page in the browser can aim it somewhere.
+        Deliberately stateless -- saving fetches again rather than holding the
+        song in memory. One extra request, no cache to go stale.
+        """
+        song = self._fetch(url)
+        already = self.library.path_for_slug(song.slug) is not None
+        return self.renderer.render(
+            song, home="/", save_url=None if already else url, saved=already
+        )
+
+    def save(self, url: str) -> str:
+        """Fetch and keep, returning the slug to redirect to."""
+        song = self._fetch(url)
+        self.library.save(song)
+        return song.slug
+
+    def delete(self, slug: str) -> None:
+        self.library.delete(slug)
+
+    def _fetch(self, url: str) -> Song:
+        """Every outbound request goes through here.
+
+        The host is checked first: these endpoints live on localhost, so any
+        page open in the browser can aim one somewhere of its choosing.
         """
         if not self.source.matches(url):
             raise NotAChordPage("not an Ultimate Guitar url")
-        song = self.source.fetch(url)
-        self.library.save(song)
-        return song.slug
+        return self.source.fetch(url)
 
     def _saved(self) -> list[Song]:
         return [self.library.load(path) for path in self.library.paths()]
@@ -98,8 +119,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._html(app.index_page())
         elif parsed.path == "/search":
             self._html(app.search_page(query.get("q", [""])[0]))
-        elif parsed.path == "/add":
-            self._add(app, query.get("url", [""])[0])
+        elif parsed.path == "/view":
+            self._fetching(lambda: self._html(app.view_page(query.get("url", [""])[0])))
         elif parsed.path.startswith("/song/"):
             slug = urllib.parse.unquote(parsed.path[len("/song/") :])
             page = app.song_page(slug)
@@ -107,17 +128,39 @@ class _Handler(BaseHTTPRequestHandler):
         else:
             self._oops(404, "Nothing here.")
 
-    def _add(self, app: Server, url: str) -> None:
+    def do_POST(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
+        """Saving and deleting change things, so they are never a GET."""
+        app: Server = self.server.app  # type: ignore[attr-defined]
+        path = urllib.parse.urlparse(self.path).path
+        form = self._form()
+
+        if path == "/save":
+            self._fetching(
+                lambda: self._see_other(f"/song/{urllib.parse.quote(app.save(form.get('url', [''])[0]))}")
+            )
+        elif path == "/delete":
+            app.delete(form.get("slug", [""])[0])
+            self._see_other("/")
+        else:
+            self._oops(404, "Nothing here.")
+
+    def _form(self) -> dict[str, list[str]]:
+        length = int(self.headers.get("Content-Length") or 0)
+        return urllib.parse.parse_qs(self.rfile.read(length).decode("utf-8"))
+
+    def _fetching(self, action) -> None:  # noqa: ANN001
+        """Anything that reaches out can fail in exactly two ways."""
         try:
-            slug = app.add(url)
+            action()
         except NotAChordPage as error:
             self._oops(400, f"Couldn't read that one: {error}")
         except OSError as error:
             self._oops(502, f"Couldn't reach Ultimate Guitar: {error}")
-        else:
-            self.send_response(303)
-            self.send_header("Location", f"/song/{urllib.parse.quote(slug)}")
-            self.end_headers()
+
+    def _see_other(self, location: str) -> None:
+        self.send_response(303)
+        self.send_header("Location", location)
+        self.end_headers()
 
     def _html(self, body: str, status: int = 200) -> None:
         payload = body.encode("utf-8")

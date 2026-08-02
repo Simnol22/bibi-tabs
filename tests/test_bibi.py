@@ -217,13 +217,15 @@ class TestServer:
     def test_song_page_refuses_to_escape_the_library(self, tmp_path, slug):
         assert self._server(tmp_path).song_page(slug) is None
 
-    def test_add_refuses_a_foreign_url_before_fetching(self, tmp_path):
+    @pytest.mark.parametrize("action", ["view_page", "save"])
+    def test_refuses_a_foreign_url_before_fetching(self, tmp_path, action):
         class Exploder(UltimateGuitar):
             def fetch(self, url):
                 raise AssertionError("should never have been called")
 
+        server = self._server(tmp_path, Exploder())
         with pytest.raises(NotAChordPage):
-            self._server(tmp_path, Exploder()).add("https://evil.test/x")
+            getattr(server, action)("https://evil.test/x")
 
     def test_search_page_survives_the_network_being_down(self, tmp_path):
         class Offline(UltimateGuitar):
@@ -235,6 +237,105 @@ class TestServer:
 
     def test_blank_search_just_shows_the_library(self, tmp_path):
         assert "Results for" not in self._server(tmp_path).search_page("   ")
+
+    def test_results_link_to_a_preview_not_a_save(self, tmp_path):
+        from bibi.song import SearchResult
+
+        class Found(UltimateGuitar):
+            def search(self, query):
+                return [SearchResult(title="P", artist="N", url="https://x.test/a")]
+
+        page = self._server(tmp_path, Found()).search_page("p")
+        assert "/view?url=" in page and "/save?url=" not in page
+
+
+class TestViewingBeforeSaving:
+    """Opening a song must not put it in the library."""
+
+    def _server(self, tmp_path, song):
+        from bibi.server import Server
+
+        class Fixed(UltimateGuitar):
+            def fetch(self, url):
+                return song
+
+        return Server(library=Library(home=tmp_path), source=Fixed())
+
+    def test_viewing_does_not_save(self, tmp_path):
+        song = Song(title="Placeholder", artist="Nobody", body="C\naaaa")
+        server = self._server(tmp_path, song)
+
+        page = server.view_page("https://tabs.ultimate-guitar.com/tab/x-chords-1")
+
+        assert server.library.paths() == []
+        assert 'action="/save"' in page
+        assert "aaaa" in page
+
+    def test_saving_keeps_it(self, tmp_path):
+        song = Song(title="Placeholder", artist="Nobody", body="C\naaaa")
+        server = self._server(tmp_path, song)
+
+        slug = server.save("https://tabs.ultimate-guitar.com/tab/x-chords-1")
+
+        assert slug == "nobody-placeholder"
+        assert [p.stem for p in server.library.paths()] == ["nobody-placeholder"]
+
+    def test_a_song_already_saved_offers_no_save_button(self, tmp_path):
+        song = Song(title="Placeholder", artist="Nobody", body="C\naaaa")
+        server = self._server(tmp_path, song)
+        server.library.save(song)
+
+        page = server.view_page("https://tabs.ultimate-guitar.com/tab/x-chords-1")
+
+        assert 'action="/save"' not in page
+        assert "Saved" in page
+
+    def test_every_server_page_can_get_home(self, tmp_path):
+        song = Song(title="Placeholder", body="C\naaaa")
+        server = self._server(tmp_path, song)
+        server.library.save(song)
+
+        for page in [
+            server.view_page("https://tabs.ultimate-guitar.com/tab/x-chords-1"),
+            server.song_page("placeholder"),
+        ]:
+            assert 'href="/"' in page
+
+    def test_the_standalone_file_has_no_dead_back_link(self, tmp_path):
+        # The CLI writes a file:// page -- a link to "/" would go nowhere.
+        page = HtmlRenderer().render(Song(title="Placeholder", body="C\naaaa"))
+        assert 'href="/"' not in page
+
+
+class TestDeleting:
+    def _server(self, tmp_path):
+        from bibi.server import Server
+
+        return Server(library=Library(home=tmp_path))
+
+    def test_removes_the_file(self, tmp_path):
+        server = self._server(tmp_path)
+        server.library.save(Song(title="Placeholder", artist="Nobody"))
+
+        server.delete("nobody-placeholder")
+
+        assert server.library.paths() == []
+
+    def test_deleting_something_absent_is_harmless(self, tmp_path):
+        self._server(tmp_path).delete("nope")
+
+    @pytest.mark.parametrize("slug", ["../../../etc/passwd", "a/b", ".bashrc", ""])
+    def test_refuses_to_delete_outside_the_library(self, tmp_path, slug):
+        assert self._server(tmp_path).library.delete(slug) is False
+
+    def test_landing_page_offers_a_delete_for_each_song(self, tmp_path):
+        server = self._server(tmp_path)
+        server.library.save(Song(title="Placeholder", artist="Nobody"))
+
+        page = server.index_page()
+
+        assert 'method="post" action="/delete"' in page
+        assert 'value="nobody-placeholder"' in page
 
 
 class TestLibrary:

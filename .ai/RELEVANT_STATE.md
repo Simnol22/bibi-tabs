@@ -2,19 +2,34 @@
 
 ## Current State
 
-**V1.1 works.** `bibi` opens a local page with a search box and your saved
-songs. Search hits Ultimate Guitar, results show version and rating, clicking
-one fetches and saves it and drops you on the sheet.
+**V1.2 works.** `bibi` opens a local page: search box, saved songs underneath.
+Search UG, open a result to read it, press **Save** to keep it, `×` to remove
+it. Opening a song no longer saves it.
 
-Verified end to end against live UG, not just by unit test: search returned 15
-filtered results, following the top one gave a 303 to the song page with 44
-chord lines and no leftover markers.
+Verified end to end against live UG, not just by unit test: view returned 200
+with the library still empty, save wrote the file and redirected to the sheet,
+re-viewing showed "Saved" with no button, delete emptied the library.
 
-52 tests, no network. conda env `bibi-tabs` (python 3.11), zero dependencies.
+66 tests, no network. conda env `bibi-tabs` (python 3.11), zero dependencies.
 
 ## In flight
 
 Nothing.
+
+## Decisions from save/delete (2026-08-02)
+
+- **Preview is stateless.** `/view?url=` fetches and renders; pressing Save
+  fetches again rather than holding the song in memory. One extra request buys
+  no cache, no staleness, no memory that grows with browsing.
+- **Save and delete are POST forms, not links.** A GET that writes or deletes
+  gets fired by browser prefetch and by back-navigation. This is why the
+  handler grew a `do_POST`.
+- **Delete confirms via one inline `onsubmit="return confirm(...)"`.** The only
+  JavaScript in the project. The alternative was a whole confirmation route.
+- **The back link is conditional.** `render(song, home=...)` only draws it when
+  given a home, because the CLI writes a `file://` page where `/` goes nowhere.
+- **A song already in the library shows "Saved" instead of the button**, so the
+  same URL can be opened twice without making a decision twice.
 
 ## Decisions from the search UI (2026-08-02)
 

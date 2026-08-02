@@ -30,6 +30,14 @@ class Library:
             return []
         return sorted(self.home.glob("*.txt"))
 
+    def delete(self, slug: str) -> bool:
+        """Really delete. Local files, no sync, so nothing to tombstone."""
+        path = self.path_for_slug(slug)
+        if path is None:
+            return False
+        path.unlink()
+        return True
+
     def path_for_slug(self, slug: str) -> Path | None:
         """Exact lookup. Rejects anything with a path separator in it."""
         if not slug or "/" in slug or "\\" in slug or slug.startswith("."):

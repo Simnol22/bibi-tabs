@@ -1,7 +1,7 @@
 # BIBI-tabs
 
-Search for a song, click it, read it with the chords sitting over the right
-syllables. That's the whole program.
+Search for a song, read it with the chords sitting over the right syllables,
+keep the ones you want. That's the whole program.
 
 ```bash
 bibi          # opens the app: search box, and everything you've saved
@@ -34,11 +34,14 @@ Without the install step, `python -m bibi …` works the same.
 ## How it works
 
 ```
-                    ┌─ Library.save() ────→ ~/.bibi-tabs/*.txt
-UltimateGuitar ─→ Song
-   .search()        └─ HtmlRenderer ──────→ browser
-   .fetch()
+search ─→ view ─→ [Save] ─→ ~/.bibi-tabs/*.txt ─→ landing page ─→ [×] gone
+            │
+            └─ reading a song does not keep it
 ```
+
+Opening a search result only shows it. It joins your library when you press
+**Save**, and leaves when you press **×** on the landing page. Every song page
+has a link back to the library.
 
 | | |
 |---|---|
@@ -54,9 +57,10 @@ UltimateGuitar ─→ Song
 the click. It binds to `127.0.0.1`, starts when you run `bibi`, and dies when
 you close it. No deploy, no build step, no dependencies.
 
-Because `/add?url=` fetches on your behalf, it checks the host properly before
-making a request — substring matching would happily accept
-`evil-ultimate-guitar.com`.
+Because the server fetches on your behalf, it checks the host by parsing the URL
+before making any request — substring matching would happily accept
+`evil-ultimate-guitar.com`. Saving and deleting are `POST`, never links: a `GET`
+that deletes a file gets fired by browser prefetch and by going back in history.
 
 **The alignment is the point.** A UG page carries its sheet as JSON with chords
 wrapped in `[ch]…[/ch]`, laid over text that is *already* column-aligned. Strip
@@ -78,7 +82,7 @@ service; this is a personal tool and that was a deliberate call.
 pytest
 ```
 
-52 tests, no network — the UG page and search parsers are exercised against
+66 tests, no network — the UG page and search parsers are exercised against
 synthetic pages, and the server's page building is tested without sockets.
 
 ## Not here on purpose

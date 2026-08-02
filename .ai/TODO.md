@@ -34,6 +34,16 @@ in flight. Next step is Simon using it on real songs and reporting what's wrong.
 - [x] `bibi` with no arguments opens the app; `--port` to move it
 - [x] Slugs fold accents (`Drôle` → `drole`), found from real use
 
+## V1.2 — save/delete, done
+
+- [x] `/view?url=` renders a fetched song **without** saving it
+- [x] Save button (POST `/save`) puts it in the library; already-saved says so
+- [x] `←  Library` on every server-rendered song page, absent from the CLI's
+      standalone file where it would be a dead link
+- [x] `×` on each landing-page row (POST `/delete`, with a confirm)
+- [x] Stateless preview: saving re-fetches rather than caching the song
+- [x] Verified end to end -- view leaves the library empty, save writes, delete removes
+
 ## Possible, only if actually missed
 
 Nothing here is planned. Listed so the reasoning isn't relitigated each time.

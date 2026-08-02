@@ -49,17 +49,44 @@ li a:hover { color:var(--accent); }
 li .who { color:var(--muted); font-size:.9rem; }
 li .rate { margin-left:auto; color:var(--muted); font-size:.85rem; white-space:nowrap; }
 .empty { color:var(--muted); }
+li.row { display:flex; align-items:center; border-bottom:1px solid #8882; }
+li.row a { flex:1; border:0; }
+li.row form { margin:0; }
+.del { background:none; border:0; color:var(--muted); font-size:1.4rem;
+       line-height:1; padding:.2rem .6rem; }
+.del:hover { color:#d24; }
+
+/* song page nav */
+nav { display:flex; align-items:center; justify-content:space-between;
+      gap:1rem; padding-bottom:1rem; }
+nav form { margin:0; }
+nav a { text-decoration:none; }
+.ok { color:var(--muted); font-size:.9rem; }
+@media print { nav { display:none } }
 """
 
 
 class HtmlRenderer:
-    def render(self, song: Song) -> str:
+    def render(
+        self,
+        song: Song,
+        home: str | None = None,
+        save_url: str | None = None,
+        saved: bool = False,
+    ) -> str:
+        """A song page.
+
+        `home` adds a back link -- omitted for the standalone file the CLI
+        writes, where there is nowhere to go back to. `save_url` adds the save
+        button, for a song that has been fetched but not kept yet.
+        """
         return (
             "<!doctype html>\n"
             f'<html lang="en"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width, initial-scale=1">'
             f"<title>{html.escape(song.title)}</title><style>{_CSS}</style></head>"
-            f"<body><header>{self._header(song)}</header>"
+            f"<body>{self._nav(home, save_url, saved)}"
+            f"<header>{self._header(song)}</header>"
             f"<pre>{self._body(song)}</pre></body></html>\n"
         )
 
@@ -67,6 +94,23 @@ class HtmlRenderer:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(self.render(song), encoding="utf-8")
         return path
+
+    def _nav(self, home: str | None, save_url: str | None, saved: bool) -> str:
+        if home is None and save_url is None and not saved:
+            return ""
+        left = f'<a href="{home}">&larr; Library</a>' if home else "<span></span>"
+
+        if save_url:
+            right = (
+                '<form method="post" action="/save">'
+                f'<input type="hidden" name="url" value="{html.escape(save_url)}">'
+                "<button>Save to library</button></form>"
+            )
+        elif saved:
+            right = '<span class="ok">Saved</span>'
+        else:
+            right = ""
+        return f'<nav class="wrap">{left}{right}</nav>'
 
     def _header(self, song: Song) -> str:
         parts = [f"<h1>{html.escape(song.title)}</h1>"]
@@ -115,7 +159,7 @@ class HtmlRenderer:
             return '<p class="empty">Nothing found. Try just the song title.</p>'
         rows = []
         for item in results:
-            link = f"/add?url={urllib.parse.quote(item.url, safe='')}"
+            link = f"/view?url={urllib.parse.quote(item.url, safe='')}"
             votes = f"{item.rating:.1f} · {item.votes:,}" if item.votes else "unrated"
             version = f"v{item.version}" if item.version else ""
             rows.append(
@@ -131,10 +175,18 @@ class HtmlRenderer:
         rows = []
         for song in saved:
             capo = f"capo {song.capo}" if song.capo else ""
+            label = html.escape(f"{song.title} — {song.artist}" if song.artist else song.title)
             rows.append(
-                f'<li><a href="/song/{song.slug}"><span>{html.escape(song.title)}</span>'
+                f'<li class="row"><a href="/song/{song.slug}">'
+                f"<span>{html.escape(song.title)}</span>"
                 f'<span class="who">{html.escape(song.artist)}</span>'
-                f'<span class="rate">{capo}</span></a></li>'
+                f'<span class="rate">{capo}</span></a>'
+                # POST, not a link: a GET that deletes gets fired by browser
+                # prefetch and by going back in history.
+                f'<form method="post" action="/delete" '
+                f"onsubmit=\"return confirm('Remove {label}?')\">"
+                f'<input type="hidden" name="slug" value="{song.slug}">'
+                f'<button class="del" title="Remove">&times;</button></form></li>'
             )
         return f"<ul>{''.join(rows)}</ul>"
 

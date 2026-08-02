@@ -47,16 +47,21 @@ bibi/cli.py              App — wires them together
    the tool.
 4. **Zero dependencies.** Needing a package is a reason to question the feature.
 5. **Small classes, one job each.**
-6. **The server stays local.** Bind `127.0.0.1`. `/add` fetches on the user's
+6. **The server stays local.** Bind `127.0.0.1`. It fetches on the user's
    behalf, so the host is validated by parsing, never substring-matching --
    any page in the browser can aim a GET at localhost.
+7. **State changes are POST.** Save and delete are forms, never links. A GET
+   that deletes gets fired by prefetch and by back-navigation.
+8. **Reading is not keeping.** `/view` renders without saving. Only the Save
+   button writes to the library.
 
 ## Negative constraints — do not
 
 - Do not add transposition, capo shifting, chord diagrams, sync, accounts, a
   web framework, or phone support. All were deliberately cut.
-- Do not expose the server beyond 127.0.0.1, and do not let /add fetch a host
-  the source does not own.
+- Do not expose the server beyond 127.0.0.1, and do not fetch a host the source
+  does not own.
+- Do not auto-save a song just because it was opened.
 - Do not add a dependency without asking.
 - Do not add configuration, plugin systems, or a second source adapter until
   there is a second source.

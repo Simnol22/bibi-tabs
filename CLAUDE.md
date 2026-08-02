@@ -40,9 +40,14 @@ bibi <ultimate-guitar-url>
    this program. The library must outlive the tool.
 6. **OOP, small classes.** One class, one job: `Song`, `UltimateGuitar`,
    `Library`, `HtmlRenderer`, `Server`, `App`.
-7. **The server stays local and unprivileged.** Bind `127.0.0.1` only. `/add`
+7. **The server stays local and unprivileged.** Bind `127.0.0.1` only. It
    fetches on the user's behalf, so validate the host properly before every
    request -- any page in the browser can aim a GET at localhost.
+8. **Anything that changes state is a POST.** Saving and deleting are forms,
+   never links. A GET that deletes a file gets fired by browser prefetch and by
+   back-navigation.
+9. **Reading is not keeping.** `/view` renders without saving; only the Save
+   button writes to the library.
 
 ## Known gotchas
 
