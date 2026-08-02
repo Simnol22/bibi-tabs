@@ -28,7 +28,8 @@ UltimateGuitar ─→ Song
   .search()         └─ HtmlRenderer ────→ browser
   .fetch()
 
-bibi/song.py             Song, Line, SearchResult, looks_like_chords()
+bibi/song.py             Song, Line, SearchResult
+bibi/chords.py           Chord, Transposer, spelling. Pure, no I/O.
 bibi/ultimate_guitar.py  UltimateGuitar — the only file that knows about UG
 bibi/library.py          Library — text files in a folder
 bibi/render.py           HtmlRenderer — song page and landing page
@@ -39,28 +40,33 @@ bibi/cli.py              App — wires them together
 
 ## Invariants — breaking one is a bug even if tests pass
 
-1. **Never reflow the sheet.** A chord means something only because of the
+1. **Transposition is display-only.** Never rewrite the stored file; a song
+   always opens untransposed. Chords keep their original columns -- a shifted
+   chord can widen (C -> C#) or narrow (Bb -> B), and the column is the only
+   thing tying it to its syllable.
+2. **Never reflow the sheet.** A chord means something only because of the
    column it occupies. Anything that trims, wraps, collapses whitespace or
    re-indents the body is a bug, however tidy the result looks.
-2. **Site knowledge stays in `ultimate_guitar.py`.** Nothing else knows what a
+3. **Site knowledge stays in `ultimate_guitar.py`.** Nothing else knows what a
    `[ch]` tag is or that UG exists. Their markup will break; one file changes.
-3. **Songs are plain text**, readable without this program. The library outlives
+4. **Songs are plain text**, readable without this program. The library outlives
    the tool. Default `~/.bibi-tabs/`, moveable. Never default it into the repo --
    copyrighted content does not belong in git.
-4. **Zero dependencies.** Needing a package is a reason to question the feature.
-5. **Small classes, one job each.**
-6. **The server stays local.** Bind `127.0.0.1`. It fetches on the user's
+5. **Zero dependencies.** Needing a package is a reason to question the feature.
+6. **Small classes, one job each.**
+7. **The server stays local.** Bind `127.0.0.1`. It fetches on the user's
    behalf, so the host is validated by parsing, never substring-matching --
    any page in the browser can aim a GET at localhost.
-7. **State changes are POST.** Save and delete are forms, never links. A GET
+8. **State changes are POST.** Save and delete are forms, never links. A GET
    that deletes gets fired by prefetch and by back-navigation.
-8. **Reading is not keeping.** `/view` renders without saving. Only the Save
+9. **Reading is not keeping.** `/view` renders without saving. Only the Save
    button writes to the library.
 
 ## Negative constraints — do not
 
-- Do not add transposition, capo shifting, chord diagrams, sync, accounts, a
-  web framework, or phone support. All were deliberately cut.
+- Do not add capo shifting, chord diagrams, sync, accounts, a web framework, or
+  phone support. All were deliberately cut. Transposition arrived on request.
+- Do not persist a transposition. Base 0 is the only state a song has.
 - Do not expose the server beyond 127.0.0.1, and do not fetch a host the source
   does not own.
 - Do not auto-save a song just because it was opened.
@@ -82,3 +88,7 @@ bibi/cli.py              App — wires them together
 - Search results include paid "Pro" entries with no sheet; filter on
   `type == "Chords"` and host `tabs.ultimate-guitar.com`.
 - Slugs fold accents (`Drôle` → `drole`); dropping them gives `dr-le`.
+- Enharmonic spelling comes from the target key on the circle of fifths, not a
+  fixed table. Stops at twelve practical names: Gb major prints `B`, not `Cb`.
+- The transposer only appears on saved songs. On a preview it would re-fetch
+  the whole UG page on every click.

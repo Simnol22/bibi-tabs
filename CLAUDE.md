@@ -33,22 +33,26 @@ bibi <ultimate-guitar-url>
 3. **Site-specific knowledge stays in `ultimate_guitar.py`.** Nothing else in
    the codebase knows what a `[ch]` tag is, or that Ultimate Guitar exists. When
    their markup breaks, exactly one file changes.
-4. **Never reflow the sheet.** A chord is meaningful only because of the column
+4. **Transposition is display-only.** The stored file is never rewritten, so a
+   song always opens untransposed. Chords keep their original columns: a
+   transposed chord can be wider or narrower, and the column is what ties it to
+   its syllable.
+5. **Never reflow the sheet.** A chord is meaningful only because of the column
    it sits in. Anything that trims, wraps, collapses whitespace or re-indents
    the body is a bug, however tidy it looks.
-5. **Songs are plain text**, readable and editable without this program. The
+6. **Songs are plain text**, readable and editable without this program. The
    library must outlive the tool. Default `~/.bibi-tabs/`, moveable in Settings.
    Never default them inside the repo -- they are copyrighted, and a repo either
    commits them or ignores them.
-6. **OOP, small classes.** One class, one job: `Song`, `UltimateGuitar`,
-   `Library`, `HtmlRenderer`, `Server`, `App`.
-7. **The server stays local and unprivileged.** Bind `127.0.0.1` only. It
+7. **OOP, small classes.** One class, one job: `Song`, `Chord`, `Transposer`,
+   `UltimateGuitar`, `Library`, `HtmlRenderer`, `Server`, `App`.
+8. **The server stays local and unprivileged.** Bind `127.0.0.1` only. It
    fetches on the user's behalf, so validate the host properly before every
    request -- any page in the browser can aim a GET at localhost.
-8. **Anything that changes state is a POST.** Saving and deleting are forms,
+9. **Anything that changes state is a POST.** Saving and deleting are forms,
    never links. A GET that deletes a file gets fired by browser prefetch and by
    back-navigation.
-9. **Reading is not keeping.** `/view` renders without saving; only the Save
+10. **Reading is not keeping.** `/view` renders without saving; only the Save
    button writes to the library.
 
 ## Known gotchas
@@ -60,6 +64,10 @@ bibi <ultimate-guitar-url>
 - **`[ch]` markers sit on top of already-aligned text**, so stripping them
   leaves columns correct. Do not try to "fix" spacing afterwards.
 - **UG serves CRLF.** Normalise on parse or every line gains a stray `\r`.
+- **Enharmonic spelling comes from the target key's place on the circle of
+  fifths**, never a fixed sharp/flat table -- otherwise transposed sheets read
+  `Gb` where `F#` belongs. It stops at the twelve practical names: Gb major
+  prints `B`, not the theoretically correct `Cb`. Deliberate, and tested.
 - **The chord-line test is a heuristic** (≥80% of tokens parse as chords). It
   only picks colour. Do not let anything load-bearing depend on it.
 - **Pro tabs and tab-type pages have no `wiki_tab.content`** and raise

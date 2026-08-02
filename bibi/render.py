@@ -10,6 +10,7 @@ import html
 import urllib.parse
 from pathlib import Path  # noqa: TC003 - used in signatures at runtime
 
+from .chords import MAX_TRANSPOSE, Transposer, transpose_key
 from .song import SearchResult, Song
 
 _CSS = """
@@ -62,7 +63,18 @@ nav { display:flex; align-items:center; justify-content:space-between;
 nav form { margin:0; }
 nav a { text-decoration:none; }
 .ok { color:var(--muted); font-size:.9rem; }
-@media print { nav { display:none } }
+
+/* transposer */
+.tr { display:flex; align-items:center; gap:.5rem; margin-top:.9rem;
+      color:var(--muted); font-size:.85rem; }
+.tr a { display:inline-block; min-width:2rem; text-align:center; padding:.25rem .5rem;
+        border:1px solid #8883; border-radius:8px; text-decoration:none;
+        font-size:1rem; line-height:1.1; }
+.tr a:hover { border-color:var(--accent); }
+.tr b { min-width:2.2rem; text-align:center; color:var(--fg); font-size:1rem; }
+.tr .reset { min-width:0; font-size:.8rem; border:0; }
+.meta s { opacity:.55; }
+@media print { nav, .tr { display:none } }
 """
 
 
@@ -73,12 +85,14 @@ class HtmlRenderer:
         home: str | None = None,
         save_url: str | None = None,
         saved: bool = False,
+        semitones: int = 0,
     ) -> str:
         """A song page.
 
         `home` adds a back link -- omitted for the standalone file the CLI
         writes, where there is nowhere to go back to. `save_url` adds the save
-        button, for a song that has been fetched but not kept yet.
+        button, for a song that has been fetched but not kept yet. `semitones`
+        shifts the chords for display only; the stored song never changes.
         """
         return (
             "<!doctype html>\n"
@@ -86,8 +100,25 @@ class HtmlRenderer:
             f'<meta name="viewport" content="width=device-width, initial-scale=1">'
             f"<title>{html.escape(song.title)}</title><style>{_CSS}</style></head>"
             f"<body>{self._nav(home, save_url, saved)}"
-            f"<header>{self._header(song)}</header>"
-            f"<pre>{self._body(song)}</pre></body></html>\n"
+            f"<header>{self._header(song, semitones)}"
+            f"{self._controls(song, bool(home) and saved, semitones)}</header>"
+            f"<pre>{self._body(song, semitones)}</pre></body></html>\n"
+        )
+
+    def _transposer(self, song: Song, semitones: int) -> str:
+        """Plain links: transposing changes nothing on disk, so GET is right."""
+        down = max(-MAX_TRANSPOSE, semitones - 1)
+        up = min(MAX_TRANSPOSE, semitones + 1)
+        showing = f"+{semitones}" if semitones > 0 else str(semitones)
+        reset = (
+            f'<a class="reset" href="/song/{song.slug}">reset</a>' if semitones else ""
+        )
+        return (
+            '<div class="tr"><span>Transpose</span>'
+            f'<a href="/song/{song.slug}?t={down}" aria-label="Down a semitone">&minus;</a>'
+            f"<b>{showing}</b>"
+            f'<a href="/song/{song.slug}?t={up}" aria-label="Up a semitone">+</a>'
+            f"{reset}</div>"
         )
 
     def write(self, song: Song, path: Path) -> Path:
@@ -112,7 +143,12 @@ class HtmlRenderer:
             right = ""
         return f'<nav class="wrap">{left}{right}</nav>'
 
-    def _header(self, song: Song) -> str:
+    def _controls(self, song: Song, saved: bool, semitones: int) -> str:
+        # Only saved songs: the transposer works by reloading the page, and on a
+        # preview that would mean re-fetching the whole page from UG per click.
+        return self._transposer(song, semitones) if saved else ""
+
+    def _header(self, song: Song, semitones: int = 0) -> str:
         parts = [f"<h1>{html.escape(song.title)}</h1>"]
         if song.artist:
             parts.append(f'<div class="by">{html.escape(song.artist)}</div>')
@@ -121,7 +157,9 @@ class HtmlRenderer:
         if song.capo:
             meta.append(f"<span><b>Capo {song.capo}</b></span>")
         if song.key:
-            meta.append(f"<span>Key {html.escape(song.key)}</span>")
+            showing = transpose_key(song.key, semitones)
+            was = f" <s>{html.escape(song.key)}</s>" if showing != song.key else ""
+            meta.append(f"<span>Key {html.escape(showing)}{was}</span>")
         if song.source:
             meta.append(f'<a href="{html.escape(song.source)}">source</a>')
         if meta:
@@ -212,9 +250,12 @@ class HtmlRenderer:
             )
         return f"<ul>{''.join(rows)}</ul>"
 
-    def _body(self, song: Song) -> str:
+    def _body(self, song: Song, semitones: int = 0) -> str:
+        transposer = Transposer.for_song(song.key, song.body, semitones)
         rows = []
         for line in song.lines:
-            text = html.escape(line.text)
-            rows.append(f'<span class="c">{text}</span>' if line.is_chords else text)
+            if line.is_chords:
+                rows.append(f'<span class="c">{html.escape(transposer.line(line.text))}</span>')
+            else:
+                rows.append(html.escape(line.text))
         return "\n".join(rows)

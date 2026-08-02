@@ -2,7 +2,7 @@
 
 ## Current State
 
-**V1.3 works.** `bibi` opens a local page: search box, saved songs underneath.
+**V1.4 works.** `bibi` opens a local page: search box, saved songs underneath.
 Search UG, open a result to read it, press **Save** to keep it, `×` to remove
 it. Opening a song no longer saves it.
 
@@ -10,14 +10,37 @@ Verified end to end against live UG, not just by unit test: view returned 200
 with the library still empty, save wrote the file and redirected to the sheet,
 re-viewing showed "Saved" with no button, delete emptied the library.
 
-There is also a Settings page: the song folder is configurable and songs move
-with it.
+There is also a Settings page (the song folder is configurable, songs move with
+it) and a transposer on saved song pages.
 
-79 tests, no network. conda env `bibi-tabs` (python 3.11), zero dependencies.
+100 tests, no network. conda env `bibi-tabs` (python 3.11), zero dependencies.
 
 ## In flight
 
 Nothing.
+
+## Decisions from transposition (2026-08-02)
+
+- **Chords existed only as a colouring regex before this.** `bibi/chords.py` is
+  the first real chord model here — a port of the tested TypeScript at
+  `5d438cf`, trimmed to what transposition needs.
+- **Columns are re-anchored, not substituted.** A transposed chord can widen
+  (`C` → `C#`) or narrow (`Bb` → `B`), and the column is the only thing tying a
+  chord to its syllable. Each chord restarts at its original column; where a
+  widened one would collide, the next moves right by exactly one rather than
+  letting everything after it drift.
+- **The shift lives in the URL (`?t=`), never in the file.** That is the whole
+  of "only base 0 is saved" — there is no state to persist or reset.
+- **± are plain links, not a form.** Transposing changes nothing on disk, so GET
+  is correct and no JavaScript is needed.
+- **Spelling follows the target key**, computed by shifting the song's stored
+  `key`. Sharp keys get sharps, flat keys flats. With no usable key it falls
+  back to whichever accidental the sheet already uses.
+- **Twelve practical note names only.** Gb major prints `B`, not the
+  theoretically correct `Cb`. Same call as the old TypeScript version; tested so
+  it reads as a decision rather than an oversight.
+- **Saved songs only.** On the preview page each ± would re-fetch the whole UG
+  page. Left out until it is actually wanted.
 
 ## Decisions from settings (2026-08-02)
 
@@ -106,3 +129,4 @@ Re-check this before debugging anything UG-related; it is the part that rots.
 - A chord line running past the end of its lyric is untested.
 - Search is by title only; there is no artist filter.
 - Only Ultimate Guitar.
+- The transposer reloads the page, so it loses scroll position on a long song.

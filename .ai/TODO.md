@@ -54,12 +54,25 @@ in flight. Next step is Simon using it on real songs and reporting what's wrong.
 - [x] Default stays `~/.bibi-tabs/` so nothing moved under Simon
 - [x] Verified end to end: song moved, config persisted, library re-listed
 
+## V1.4 — transposition, done
+
+- [x] `bibi/chords.py` — `Chord` parse/format, `Transposer`, `transpose_key`. Pure.
+- [x] `− 0 +` control on saved song pages, with a reset when non-zero
+- [x] Chords re-anchored at their original columns; collisions push right by one
+- [x] Spelling from the target key's circle-of-fifths position, flats or sharps
+- [x] Falls back to the accidentals already on the sheet when the key is unknown
+- [x] Shift lives in the URL, never in the file — songs always open at 0
+- [x] Header shows the transposed key with the original struck through
+- [x] `?t=` clamped to ±11 and non-numeric input ignored
+- [x] Verified on a real song: columns held at 0/5/9/13 across -1, +1, +2
+
+- [ ] Transposition on the preview page too? Left out because each click would
+      re-fetch the UG page. Only worth it if Simon actually wants it there.
+
 ## Possible, only if actually missed
 
 Nothing here is planned. Listed so the reasoning isn't relitigated each time.
 
-- [ ] Transposition — would need chord parsing back; there is a tested
-      TypeScript implementation at `5d438cf` to port if it comes to it
 - [ ] Chord diagrams — chords-db (MIT) was already vetted, see `8ed0bb1`
 - [ ] A second site adapter — `UltimateGuitar` already has `matches()`, so the
       shape is there; do not add an abstract base class for one implementation

@@ -6,27 +6,10 @@ import re
 import unicodedata
 from dataclasses import dataclass
 
-# Close enough to catch real chord symbols and reject ordinary words.
-_ROOT = r"[A-G][#b]?"
-_QUALITY = r"(?:maj|min|dim|aug|M|m|°|ø|\+|-)?"
-_EXT = r"(?:sus|add|maj|min|dim|aug|alt|\d|[#b()+\-°ø])*"
-_CHORD = re.compile(rf"^{_ROOT}{_QUALITY}{_EXT}(?:/{_ROOT})?$")
+# One definition of "what is a chord", and it lives in chords.py.
+from .chords import looks_like_chords
 
-#: A line counts as chords when this share of its tokens parse as chord symbols.
-_CHORD_LINE_SHARE = 0.8
-
-
-def looks_like_chords(text: str) -> bool:
-    """True when a line is a chord line rather than a lyric.
-
-    Only ever used to decide styling, so a wrong answer is a mis-coloured line,
-    never mangled text.
-    """
-    tokens = text.split()
-    if not tokens:
-        return False
-    hits = sum(1 for token in tokens if _CHORD.match(token))
-    return hits / len(tokens) >= _CHORD_LINE_SHARE
+__all__ = ["Line", "SearchResult", "Song", "looks_like_chords"]
 
 
 @dataclass(frozen=True)

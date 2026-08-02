@@ -1,5 +1,6 @@
 import html
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -34,6 +35,143 @@ class TestChordLineDetection:
     def test_threshold_is_eighty_percent(self):
         assert not looks_like_chords("C G Am hey")  # 3/4
         assert looks_like_chords("C G Am F hey")  # 4/5
+
+
+class TestChordParsing:
+    def test_splits_a_chord_into_its_parts(self):
+        from bibi.chords import Chord
+
+        assert Chord.parse("C") == Chord("C", "", "", None)
+        assert Chord.parse("Cm7") == Chord("C", "m", "7", None)
+        assert Chord.parse("F#m7b5/A") == Chord("F#", "m", "7b5", "A")
+
+    def test_does_not_mistake_the_m_in_maj_for_minor(self):
+        from bibi.chords import Chord
+
+        assert Chord.parse("Cmaj7").quality == "maj"
+
+    def test_rejects_ordinary_words(self):
+        from bibi.chords import Chord
+
+        for word in ["Chorus", "Bass", "Dad", "Verse", "N.C."]:
+            assert Chord.parse(word) is None, word
+
+    def test_round_trips_to_text(self):
+        from bibi.chords import Chord
+
+        for token in ["C", "Cm", "Cmaj7", "F#m7b5/A", "Bb/D", "C7sus4", "G5"]:
+            assert str(Chord.parse(token)) == token
+
+
+class TestTransposingChords:
+    def _shift(self, token, semitones, flats=False):
+        from bibi.chords import Chord
+
+        return str(Chord.parse(token).transposed(semitones, flats))
+
+    def test_shifts_a_triad(self):
+        assert self._shift("C", 2) == "D"
+        assert self._shift("A", 3) == "C"
+
+    def test_carries_quality_and_extension_through(self):
+        assert self._shift("Cm7", 2) == "Dm7"
+        assert self._shift("Cmaj7#11", 2) == "Dmaj7#11"
+
+    def test_shifts_root_and_bass_together(self):
+        assert self._shift("C/E", 5) == "F/A"
+        assert self._shift("D/F#", -2) == "C/E"
+
+    def test_wraps_around_the_octave(self):
+        assert self._shift("B", 2) == "C#"
+        assert self._shift("C", -1) == "B"
+
+    def test_spelling_follows_the_target_key(self):
+        # Same pitch, two spellings. Sharp keys get sharps, flat keys flats.
+        assert self._shift("C", 6, flats=False) == "F#"
+        assert self._shift("C", 6, flats=True) == "Gb"
+
+
+class TestTransposingKeys:
+    def test_shifts_major_and_minor(self):
+        from bibi.chords import transpose_key
+
+        assert transpose_key("C", 2) == "D"
+        assert transpose_key("Am", 2) == "Bm"
+        assert transpose_key("F#m", 1) == "Gm"
+
+    def test_prefers_the_spelling_with_fewer_accidentals(self):
+        from bibi.chords import transpose_key
+
+        assert transpose_key("A", 1) == "Bb"  # not A#, which needs ten sharps
+        assert transpose_key("C", 1) == "Db"  # 5 flats beats 7 sharps
+
+    def test_leaves_a_key_it_cannot_read_alone(self):
+        from bibi.chords import transpose_key
+
+        assert transpose_key("", 2) == ""
+        assert transpose_key("H", 2) == "H"
+
+
+class TestTransposingALine:
+    """Columns are the product. A chord that moves off its syllable is a bug."""
+
+    def _line(self, text, semitones, key="C"):
+        from bibi.chords import Transposer
+
+        return Transposer.for_song(key, "", semitones).line(text)
+
+    def test_keeps_chords_in_their_original_columns(self):
+        #        0    5    10
+        line = "C    G    Am"
+        out = self._line(line, 2)
+        assert out == "D    A    Bm"
+        assert [m.start() for m in re.finditer(r"\S+", out)] == [0, 5, 10]
+
+    def test_a_widening_chord_still_starts_in_the_same_column(self):
+        # C from C major goes up one into Db: two characters where one was.
+        out = self._line("C     G", 1)
+        assert out.index("Db") == 0
+        assert out.index("Ab") == 6
+
+    def test_a_narrowing_chord_holds_its_column_too(self):
+        out = self._line("Bb    Eb", -1)
+        assert [m.start() for m in re.finditer(r"\S+", out)] == [0, 6]
+
+    def test_pushes_a_collision_right_by_the_minimum(self):
+        # Two characters of chord where one used to fit: the next one shifts by
+        # exactly one, rather than everything after it drifting.
+        assert self._line("C G", 1) == "Db Ab"
+
+    def test_leaves_tokens_that_are_not_chords_alone(self):
+        assert "x4" in self._line("C   x4   G", 2)
+
+    def test_zero_semitones_is_the_original_text_untouched(self):
+        line = "C     G      Am"
+        assert self._line(line, 0) == line
+
+    def test_spells_from_the_key_the_song_lands_in(self):
+        from bibi.chords import Transposer
+
+        # A up one is Bb major, so the chords read flat.
+        assert Transposer.for_song("A", "", 1).line("A D") == "Bb Eb"
+        # D up one is Eb major.
+        assert Transposer.for_song("D", "", 1).line("D G") == "Eb Ab"
+        # G up two is A major, which is sharp.
+        assert Transposer.for_song("G", "", 2).line("G C") == "A D"
+
+    def test_stops_at_the_twelve_practical_note_names(self):
+        from bibi.chords import Transposer
+
+        # F up one lands in Gb major, where strict theory spells pitch 11 as Cb.
+        # We print B. Chasing Cb and E# needs a per-key diatonic speller and
+        # puts chords on the page no guitarist wants to read.
+        assert Transposer.for_song("F", "", 1).line("F Bb") == "Gb B"
+
+    def test_falls_back_to_the_accidentals_already_on_the_sheet(self):
+        from bibi.chords import Transposer
+
+        flat_song = Transposer.for_song("", "Bb Eb Ab", 1)
+        assert flat_song.flats is True
 
 
 class TestSong:

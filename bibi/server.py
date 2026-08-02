@@ -15,6 +15,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from .chords import MAX_TRANSPOSE
 from .config import Config
 from .library import Library
 from .render import HtmlRenderer
@@ -22,6 +23,14 @@ from .song import Song
 from .ultimate_guitar import NotAChordPage, UltimateGuitar
 
 DEFAULT_PORT = 8777
+
+
+def _semitones(raw: str) -> int:
+    """A hand-edited ?t= should not be able to 500 the page."""
+    try:
+        return int(raw)
+    except ValueError:
+        return 0
 
 
 class Server:
@@ -53,11 +62,14 @@ class Server:
             results = []
         return self.renderer.index(self._saved(), query, results)
 
-    def song_page(self, slug: str) -> str | None:
+    def song_page(self, slug: str, semitones: int = 0) -> str | None:
         path = self.library.path_for_slug(slug)
         if path is None:
             return None
-        return self.renderer.render(self.library.load(path), home="/", saved=True)
+        shift = max(-MAX_TRANSPOSE, min(MAX_TRANSPOSE, semitones))
+        return self.renderer.render(
+            self.library.load(path), home="/", saved=True, semitones=shift
+        )
 
     def view_page(self, url: str) -> str:
         """Read a song without keeping it. Opening is not the same as wanting.
@@ -147,7 +159,7 @@ class _Handler(BaseHTTPRequestHandler):
             self._html(app.settings_page())
         elif parsed.path.startswith("/song/"):
             slug = urllib.parse.unquote(parsed.path[len("/song/") :])
-            page = app.song_page(slug)
+            page = app.song_page(slug, _semitones(query.get("t", ["0"])[0]))
             self._html(page) if page else self._oops(404, "No such song.")
         else:
             self._oops(404, "Nothing here.")

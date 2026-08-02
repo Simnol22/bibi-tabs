@@ -52,6 +52,7 @@ has a link back to the library.
 | `bibi/render.py` | the song page and the landing page |
 | `bibi/server.py` | localhost-only web app, stdlib `http.server` |
 | `bibi/config.py` | one small JSON file, one setting so far |
+| `bibi/chords.py` | chord symbols, transposition, enharmonic spelling. Pure. |
 | `bibi/cli.py` | `App` — wires them together |
 
 **Why there's a server at all.** A browser cannot fetch an Ultimate Guitar page
@@ -69,6 +70,16 @@ wrapped in `[ch]…[/ch]`, laid over text that is *already* column-aligned. Stri
 the markers and the columns are still right — so the renderer just needs a
 `<pre>` and the discipline not to reflow anything.
 
+**Transposing never touches the file.** The song page has a `− 0 +` control; the
+shift lives in the URL, so a song always opens in the key it was written in.
+Chords are re-anchored at their original columns, because transposing can widen
+a chord (`C` to `C#`) or narrow one (`Bb` to `B`) and the column is the only
+thing tying a chord to its syllable.
+
+Spelling follows the key the song lands *in*, not a fixed table — up one from A
+is `Bb`, never `A#`. It stops at the twelve practical note names, so Gb major
+prints `B` where strict theory wants `Cb`.
+
 **Chord lines are found by counting.** A line is chords when at least 80% of its
 tokens parse as chord symbols. It only decides colour, so a wrong answer is a
 mis-coloured line, never mangled text.
@@ -84,7 +95,7 @@ service; this is a personal tool and that was a deliberate call.
 pytest
 ```
 
-79 tests, no network — the UG page and search parsers are exercised against
+100 tests, no network — the UG page and search parsers are exercised against
 synthetic pages, and the server's page building is tested without sockets.
 
 ## Where songs live
@@ -99,6 +110,6 @@ putting them there. The setting is stored separately, in
 
 ## Not here on purpose
 
-Transposition, capo shifting, chord diagrams, sync, phone support. V1 finds a
-song and opens it. If one of those turns out to be missed, it can be added to a
+Capo shifting, chord diagrams, sync, phone support. Transposition arrived when
+it was actually wanted. If one of those turns out to be missed, it can be added to a
 program this small without much drama.
