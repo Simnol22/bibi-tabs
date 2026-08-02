@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import html
 import urllib.parse
-from pathlib import Path
+from pathlib import Path  # noqa: TC003 - used in signatures at runtime
 
 from .song import SearchResult, Song
 
@@ -146,12 +146,34 @@ class HtmlRenderer:
             '<html lang="en"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width, initial-scale=1">'
             f"<title>BIBI-tabs</title><style>{_CSS}</style></head>"
-            '<body><div class="wrap"><h1>BIBI-tabs</h1>'
+            '<body><div class="wrap">'
+            '<nav><h1>BIBI-tabs</h1><a href="/settings">Settings</a></nav>'
             '<form action="/search" method="get">'
             f'<input type="search" name="q" placeholder="Search a song" '
             f'value="{html.escape(query)}" autofocus>'
             "<button>Search</button></form>"
             f"{sections}</div></body></html>\n"
+        )
+
+    def settings(self, library: Path, message: str = "") -> str:
+        note = f'<p class="ok">{html.escape(message)}</p>' if message else ""
+        return (
+            "<!doctype html>\n"
+            '<html lang="en"><head><meta charset="utf-8">'
+            '<meta name="viewport" content="width=device-width, initial-scale=1">'
+            f"<title>Settings</title><style>{_CSS}</style></head>"
+            '<body><div class="wrap">'
+            '<nav><a href="/">&larr; Library</a></nav>'
+            "<h1>Settings</h1>"
+            f"{note}"
+            '<h2>Where songs are kept</h2>'
+            '<form method="post" action="/settings">'
+            f'<input type="text" name="library" value="{html.escape(str(library))}">'
+            "<button>Save</button></form>"
+            '<p class="empty">Songs move with the folder. They stay plain text '
+            "either way, so they are readable without this program.<br>"
+            "Keeping them outside a git repository is wise — they are copyrighted."
+            "</p></div></body></html>\n"
         )
 
     def _results(self, results: list[SearchResult]) -> str:

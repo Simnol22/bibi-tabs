@@ -2,16 +2,35 @@
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
+from .config import Config
 from .song import Song
-
-DEFAULT_HOME = Path.home() / ".bibi-tabs"
 
 
 class Library:
-    def __init__(self, home: Path = DEFAULT_HOME) -> None:
-        self.home = home
+    def __init__(self, home: Path | None = None) -> None:
+        #: Reading the setting here means every entry point honours it.
+        self.home = home if home is not None else Config().library
+
+    def move_to(self, new_home: Path) -> int:
+        """Take the songs along when the folder changes. Returns how many moved.
+
+        shutil.move rather than rename: the new folder may be on another disk.
+        A name already present at the destination is left alone rather than
+        silently overwritten.
+        """
+        if new_home == self.home:
+            return 0
+        new_home.mkdir(parents=True, exist_ok=True)
+        moved = 0
+        for path in self.paths():
+            target = new_home / path.name
+            if not target.exists():
+                shutil.move(str(path), str(target))
+                moved += 1
+        return moved
 
     def path_for(self, song: Song) -> Path:
         return self.home / f"{song.slug}.txt"

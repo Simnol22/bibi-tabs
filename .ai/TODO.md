@@ -9,6 +9,7 @@ in flight. Next step is Simon using it on real songs and reporting what's wrong.
 - [ ] Check a song with a `[tab]`-heavy intro (riff notation, not chords)
 - [ ] Check a song whose chord line runs past the end of the lyric
 - [ ] Decide whether search needs an artist filter (title-only today)
+- [ ] Consider moving songs somewhere visible in Finder (`~/.bibi-tabs` is hidden)
 
 ---
 
@@ -43,6 +44,15 @@ in flight. Next step is Simon using it on real songs and reporting what's wrong.
 - [x] `×` on each landing-page row (POST `/delete`, with a confirm)
 - [x] Stateless preview: saving re-fetches rather than caching the song
 - [x] Verified end to end -- view leaves the library empty, save writes, delete removes
+
+## V1.3 — settings, done
+
+- [x] `Config` — `~/.config/bibi-tabs.json` (honours `XDG_CONFIG_HOME`), one setting
+- [x] Settings page, linked from the landing page
+- [x] Changing the folder **moves the songs**, never overwriting a name already there
+- [x] Relative paths refused; a corrupt config falls back instead of crashing
+- [x] Default stays `~/.bibi-tabs/` so nothing moved under Simon
+- [x] Verified end to end: song moved, config persisted, library re-listed
 
 ## Possible, only if actually missed
 

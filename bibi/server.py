@@ -13,7 +13,9 @@ from __future__ import annotations
 import urllib.parse
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
+from .config import Config
 from .library import Library
 from .render import HtmlRenderer
 from .song import Song
@@ -29,8 +31,10 @@ class Server:
         source: UltimateGuitar | None = None,
         renderer: HtmlRenderer | None = None,
         port: int = DEFAULT_PORT,
+        config: Config | None = None,
     ) -> None:
-        self.library = library or Library()
+        self.config = config or Config()
+        self.library = library or Library(home=self.config.library)
         self.source = source or UltimateGuitar()
         self.renderer = renderer or HtmlRenderer()
         self.port = port
@@ -75,6 +79,24 @@ class Server:
 
     def delete(self, slug: str) -> None:
         self.library.delete(slug)
+
+    def settings_page(self, message: str = "") -> str:
+        return self.renderer.settings(self.library.home, message)
+
+    def set_library(self, raw: str) -> str:
+        """Point the library somewhere else, taking the songs along."""
+        wanted = Path(raw.strip()).expanduser()
+        if not raw.strip() or not wanted.is_absolute():
+            return self.settings_page("Give a full path, starting from / or ~.")
+        try:
+            moved = self.library.move_to(wanted)
+        except OSError as error:
+            return self.settings_page(f"Couldn't use that folder: {error}")
+
+        self.config.set_library(wanted)
+        self.library = Library(home=wanted)
+        songs = f"{moved} song{'s' if moved != 1 else ''} moved. " if moved else ""
+        return self.settings_page(f"{songs}Songs are now kept in {wanted}.")
 
     def _fetch(self, url: str) -> Song:
         """Every outbound request goes through here.
@@ -121,6 +143,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._html(app.search_page(query.get("q", [""])[0]))
         elif parsed.path == "/view":
             self._fetching(lambda: self._html(app.view_page(query.get("url", [""])[0])))
+        elif parsed.path == "/settings":
+            self._html(app.settings_page())
         elif parsed.path.startswith("/song/"):
             slug = urllib.parse.unquote(parsed.path[len("/song/") :])
             page = app.song_page(slug)
@@ -141,6 +165,8 @@ class _Handler(BaseHTTPRequestHandler):
         elif path == "/delete":
             app.delete(form.get("slug", [""])[0])
             self._see_other("/")
+        elif path == "/settings":
+            self._html(app.set_library(form.get("library", [""])[0]))
         else:
             self._oops(404, "Nothing here.")
 

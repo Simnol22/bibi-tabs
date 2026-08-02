@@ -33,6 +33,7 @@ bibi/ultimate_guitar.py  UltimateGuitar — the only file that knows about UG
 bibi/library.py          Library — text files in a folder
 bibi/render.py           HtmlRenderer — song page and landing page
 bibi/server.py           Server — 127.0.0.1 only, stdlib http.server
+bibi/config.py           Config — ~/.config/bibi-tabs.json, one setting
 bibi/cli.py              App — wires them together
 ```
 
@@ -44,7 +45,8 @@ bibi/cli.py              App — wires them together
 2. **Site knowledge stays in `ultimate_guitar.py`.** Nothing else knows what a
    `[ch]` tag is or that UG exists. Their markup will break; one file changes.
 3. **Songs are plain text**, readable without this program. The library outlives
-   the tool.
+   the tool. Default `~/.bibi-tabs/`, moveable. Never default it into the repo --
+   copyrighted content does not belong in git.
 4. **Zero dependencies.** Needing a package is a reason to question the feature.
 5. **Small classes, one job each.**
 6. **The server stays local.** Bind `127.0.0.1`. It fetches on the user's

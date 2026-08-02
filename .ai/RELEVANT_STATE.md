@@ -2,7 +2,7 @@
 
 ## Current State
 
-**V1.2 works.** `bibi` opens a local page: search box, saved songs underneath.
+**V1.3 works.** `bibi` opens a local page: search box, saved songs underneath.
 Search UG, open a result to read it, press **Save** to keep it, `×` to remove
 it. Opening a song no longer saves it.
 
@@ -10,11 +10,31 @@ Verified end to end against live UG, not just by unit test: view returned 200
 with the library still empty, save wrote the file and redirected to the sheet,
 re-viewing showed "Saved" with no button, delete emptied the library.
 
-66 tests, no network. conda env `bibi-tabs` (python 3.11), zero dependencies.
+There is also a Settings page: the song folder is configurable and songs move
+with it.
+
+79 tests, no network. conda env `bibi-tabs` (python 3.11), zero dependencies.
 
 ## In flight
 
 Nothing.
+
+## Decisions from settings (2026-08-02)
+
+- **Songs stay out of the repo.** Simon asked about putting the folder at the
+  repo root; declined because they are copyrighted lyrics, so a repo either
+  commits them on push or has to ignore them -- and a repo-relative path breaks
+  `bibi` run from any other directory. The real complaint was that
+  `~/.bibi-tabs` is a dotfile and invisible in Finder, which the setting fixes.
+- **Config lives outside the library**, at `~/.config/bibi-tabs.json`, for the
+  obvious reason: it is the thing pointing at the library.
+- **Changing the folder moves the songs**, via `shutil.move` rather than rename
+  so it survives crossing a disk. A filename already at the destination is left
+  alone rather than silently overwritten.
+- **Default unchanged at `~/.bibi-tabs/`** so nothing moved under Simon's
+  existing library. Migration is his choice, one click.
+- **A corrupt or missing config falls back to defaults** rather than raising --
+  losing a setting is annoying, refusing to start is worse.
 
 ## Decisions from save/delete (2026-08-02)
 

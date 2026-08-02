@@ -9,6 +9,7 @@ bibi          # opens the app: search box, and everything you've saved
 
 Songs are kept as plain text in `~/.bibi-tabs/`, so once a song is fetched you
 can read it with no connection — or with no BIBI-tabs, since they're just files.
+**Settings** moves that folder anywhere you like, songs included.
 
 ## Install
 
@@ -50,6 +51,7 @@ has a link back to the library.
 | `bibi/library.py` | plain text files in a folder |
 | `bibi/render.py` | the song page and the landing page |
 | `bibi/server.py` | localhost-only web app, stdlib `http.server` |
+| `bibi/config.py` | one small JSON file, one setting so far |
 | `bibi/cli.py` | `App` — wires them together |
 
 **Why there's a server at all.** A browser cannot fetch an Ultimate Guitar page
@@ -82,8 +84,18 @@ service; this is a personal tool and that was a deliberate call.
 pytest
 ```
 
-66 tests, no network — the UG page and search parsers are exercised against
+79 tests, no network — the UG page and search parsers are exercised against
 synthetic pages, and the server's page building is tested without sockets.
+
+## Where songs live
+
+Default is `~/.bibi-tabs/`. Change it in **Settings** — existing songs move with
+it, and a name already at the destination is never overwritten.
+
+Keep them **out of a git repository.** They're copyrighted lyrics, so a repo
+either publishes them on push or has to ignore them, which defeats the point of
+putting them there. The setting is stored separately, in
+`~/.config/bibi-tabs.json`, since it's the thing pointing at the song folder.
 
 ## Not here on purpose
 

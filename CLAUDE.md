@@ -36,8 +36,10 @@ bibi <ultimate-guitar-url>
 4. **Never reflow the sheet.** A chord is meaningful only because of the column
    it sits in. Anything that trims, wraps, collapses whitespace or re-indents
    the body is a bug, however tidy it looks.
-5. **Songs are plain text.** `~/.bibi-tabs/*.txt`, readable and editable without
-   this program. The library must outlive the tool.
+5. **Songs are plain text**, readable and editable without this program. The
+   library must outlive the tool. Default `~/.bibi-tabs/`, moveable in Settings.
+   Never default them inside the repo -- they are copyrighted, and a repo either
+   commits them or ignores them.
 6. **OOP, small classes.** One class, one job: `Song`, `UltimateGuitar`,
    `Library`, `HtmlRenderer`, `Server`, `App`.
 7. **The server stays local and unprivileged.** Bind `127.0.0.1` only. It

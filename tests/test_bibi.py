@@ -1,5 +1,6 @@
 import html
 import json
+from pathlib import Path
 
 import pytest
 
@@ -336,6 +337,90 @@ class TestDeleting:
 
         assert 'method="post" action="/delete"' in page
         assert 'value="nobody-placeholder"' in page
+
+
+class TestConfig:
+    def test_defaults_when_there_is_no_config(self, tmp_path):
+        from bibi.config import DEFAULT_LIBRARY, Config
+
+        assert Config(path=tmp_path / "absent.json").library == DEFAULT_LIBRARY
+
+    def test_remembers_a_library_path(self, tmp_path):
+        from bibi.config import Config
+
+        config = Config(path=tmp_path / "cfg.json")
+        config.set_library(tmp_path / "songs")
+
+        assert Config(path=tmp_path / "cfg.json").library == tmp_path / "songs"
+
+    def test_expands_a_tilde(self, tmp_path):
+        from bibi.config import Config
+
+        config = Config(path=tmp_path / "cfg.json")
+        (tmp_path / "cfg.json").write_text('{"library": "~/elsewhere"}')
+
+        assert config.library == Path.home() / "elsewhere"
+
+    def test_a_corrupt_config_falls_back_rather_than_crashing(self, tmp_path):
+        from bibi.config import DEFAULT_LIBRARY, Config
+
+        path = tmp_path / "cfg.json"
+        path.write_text("{ this is not json")
+
+        assert Config(path=path).library == DEFAULT_LIBRARY
+
+
+class TestChangingTheLibraryFolder:
+    def _server(self, tmp_path):
+        from bibi.config import Config
+        from bibi.server import Server
+
+        return Server(
+            library=Library(home=tmp_path / "old"),
+            config=Config(path=tmp_path / "cfg.json"),
+        )
+
+    def test_moves_the_songs_along(self, tmp_path):
+        server = self._server(tmp_path)
+        server.library.save(Song(title="Placeholder", artist="Nobody", body="C\naaaa"))
+
+        server.set_library(str(tmp_path / "new"))
+
+        assert (tmp_path / "new" / "nobody-placeholder.txt").is_file()
+        assert not (tmp_path / "old" / "nobody-placeholder.txt").exists()
+        assert server.library.home == tmp_path / "new"
+
+    def test_the_choice_survives_a_restart(self, tmp_path):
+        from bibi.config import Config
+
+        self._server(tmp_path).set_library(str(tmp_path / "new"))
+
+        assert Config(path=tmp_path / "cfg.json").library == tmp_path / "new"
+
+    def test_never_overwrites_a_song_already_there(self, tmp_path):
+        server = self._server(tmp_path)
+        server.library.save(Song(title="Placeholder", body="C\nfrom old"))
+        (tmp_path / "new").mkdir()
+        (tmp_path / "new" / "placeholder.txt").write_text("title: Placeholder\n\nkeep me")
+
+        server.set_library(str(tmp_path / "new"))
+
+        assert "keep me" in (tmp_path / "new" / "placeholder.txt").read_text()
+
+    @pytest.mark.parametrize("bad", ["", "   ", "songs", "./songs"])
+    def test_rejects_anything_that_is_not_a_full_path(self, tmp_path, bad):
+        server = self._server(tmp_path)
+
+        page = server.set_library(bad)
+
+        assert "Give a full path" in page
+        assert server.library.home == tmp_path / "old"
+
+    def test_settings_page_shows_where_songs_are(self, tmp_path):
+        assert str(tmp_path / "old") in self._server(tmp_path).settings_page()
+
+    def test_landing_page_links_to_settings(self, tmp_path):
+        assert 'href="/settings"' in self._server(tmp_path).index_page()
 
 
 class TestLibrary:
