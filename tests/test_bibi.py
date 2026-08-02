@@ -40,6 +40,11 @@ class TestSong:
         assert Song(title="Hey Jude!", artist="The Beatles").slug == "the-beatles-hey-jude"
         assert Song(title="Song / Two").slug == "song-two"
 
+    def test_slug_folds_accents_instead_of_dropping_them(self):
+        # Most French titles hit this; dropping gives "dr-le-de-temps".
+        assert Song(title="Drôle de temps").slug == "drole-de-temps"
+        assert Song(title="Été", artist="Coeur de Pirate").slug == "coeur-de-pirate-ete"
+
     def test_round_trips_through_text(self):
         song = Song(
             title="Placeholder",
@@ -106,6 +111,130 @@ class TestUltimateGuitar:
         source = UltimateGuitar()
         assert source.matches("https://tabs.ultimate-guitar.com/tab/oasis/x-chords-1")
         assert not source.matches("wonderwall")
+
+
+def _search_page(results):
+    blob = {"store": {"page": {"data": {"results": results}}}}
+    return f'<div class="js-store" data-content="{html.escape(json.dumps(blob), quote=True)}"></div>'
+
+
+def _hit(name="Placeholder", type_="Chords", host="tabs.ultimate-guitar.com", votes=10, **kw):
+    return {
+        "song_name": name,
+        "artist_name": "Nobody",
+        "type": type_,
+        "tab_url": f"https://{host}/tab/nobody/x-chords-1",
+        "version": 2,
+        "rating": 4.5,
+        "votes": votes,
+        **kw,
+    }
+
+
+class TestSearch:
+    def test_reads_results(self):
+        found = UltimateGuitar().parse_search(_search_page([_hit()]))
+        assert len(found) == 1
+        assert (found[0].title, found[0].artist, found[0].version) == ("Placeholder", "Nobody", 2)
+        assert (found[0].rating, found[0].votes) == (4.5, 10)
+
+    def test_drops_paid_pro_entries(self):
+        # These carry no sheet, so fetching one would only ever error.
+        page = _search_page(
+            [_hit(type_=None, host="www.ultimate-guitar.com"), _hit()]
+        )
+        assert len(UltimateGuitar().parse_search(page)) == 1
+
+    def test_drops_anything_not_on_the_sheet_host(self):
+        assert UltimateGuitar().parse_search(_search_page([_hit(host="evil.test")])) == []
+
+    def test_most_voted_first(self):
+        page = _search_page([_hit(votes=10), _hit(votes=900), _hit(votes=100)])
+        assert [r.votes for r in UltimateGuitar().parse_search(page)] == [900, 100, 10]
+
+    def test_no_results_is_not_an_error(self):
+        assert UltimateGuitar().parse_search(_search_page([])) == []
+
+
+class TestUrlMatching:
+    """The local /add endpoint fetches whatever this approves, so it is strict."""
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://tabs.ultimate-guitar.com/tab/oasis/x-chords-1",
+            "https://www.ultimate-guitar.com/search.php?value=x",
+        ],
+    )
+    def test_accepts_real_ug_urls(self, url):
+        assert UltimateGuitar().matches(url)
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://evil-ultimate-guitar.com/tab/x",  # substring match would pass this
+            "https://ultimate-guitar.com.evil.test/x",
+            "file:///etc/passwd",
+            "http://127.0.0.1:8777/add",
+            "wonderwall",
+            "",
+        ],
+    )
+    def test_rejects_everything_else(self, url):
+        assert not UltimateGuitar().matches(url)
+
+    def test_fetch_refuses_a_url_it_does_not_own(self):
+        with pytest.raises(NotAChordPage):
+            UltimateGuitar().fetch("https://evil.test/x")
+
+
+class TestServer:
+    """Page building only -- no sockets involved."""
+
+    def _server(self, tmp_path, source=None):
+        from bibi.server import Server
+
+        return Server(library=Library(home=tmp_path), source=source or UltimateGuitar())
+
+    def test_index_lists_saved_songs(self, tmp_path):
+        server = self._server(tmp_path)
+        server.library.save(Song(title="Placeholder", artist="Nobody", body="C\naaaa"))
+        page = server.index_page()
+        assert "Placeholder" in page and 'href="/song/nobody-placeholder"' in page
+
+    def test_index_says_so_when_empty(self, tmp_path):
+        assert "Nothing saved yet" in self._server(tmp_path).index_page()
+
+    def test_song_page_renders_a_saved_song(self, tmp_path):
+        server = self._server(tmp_path)
+        server.library.save(Song(title="Placeholder", body="C   G\naaaa bbbb"))
+        assert '<span class="c">C   G</span>' in server.song_page("placeholder")
+
+    def test_song_page_is_none_when_missing(self, tmp_path):
+        assert self._server(tmp_path).song_page("nope") is None
+
+    @pytest.mark.parametrize("slug", ["../../etc/passwd", "a/b", ".hidden", ""])
+    def test_song_page_refuses_to_escape_the_library(self, tmp_path, slug):
+        assert self._server(tmp_path).song_page(slug) is None
+
+    def test_add_refuses_a_foreign_url_before_fetching(self, tmp_path):
+        class Exploder(UltimateGuitar):
+            def fetch(self, url):
+                raise AssertionError("should never have been called")
+
+        with pytest.raises(NotAChordPage):
+            self._server(tmp_path, Exploder()).add("https://evil.test/x")
+
+    def test_search_page_survives_the_network_being_down(self, tmp_path):
+        class Offline(UltimateGuitar):
+            def search(self, query):
+                raise OSError("no network")
+
+        page = self._server(tmp_path, Offline()).search_page("wonderwall")
+        assert "Nothing found" in page and "Saved" in page
+
+    def test_blank_search_just_shows_the_library(self, tmp_path):
+        assert "Results for" not in self._server(tmp_path).search_page("   ")
 
 
 class TestLibrary:

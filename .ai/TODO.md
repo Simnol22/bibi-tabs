@@ -2,12 +2,13 @@
 
 ## Current Sprint
 
-V1 is done and works end to end against a live Ultimate Guitar page. Nothing is
+V1.1 is done: search, fetch, read. Verified end to end against live UG. Nothing
 in flight. Next step is Simon using it on real songs and reporting what's wrong.
 
 - [ ] Use it for a week; note anything that reads badly
 - [ ] Check a song with a `[tab]`-heavy intro (riff notation, not chords)
 - [ ] Check a song whose chord line runs past the end of the lyric
+- [ ] Decide whether search needs an artist filter (title-only today)
 
 ---
 
@@ -22,6 +23,16 @@ in flight. Next step is Simon using it on real songs and reporting what's wrong.
 - [x] 26 tests, no network
 - [x] Verified against a live UG page: columns intact, no leftover markers
 - [x] Old SvelteKit + FastAPI stack removed (in git history at `8ed0bb1`)
+
+## V1.1 — search UI, done
+
+- [x] `UltimateGuitar.search()` — title search, Pro entries filtered, votes-first
+- [x] `SearchResult` in `song.py`, so nothing outside the adapter knows about UG
+- [x] `HtmlRenderer.index()` — search box, results with rating, saved songs
+- [x] `Server` — stdlib `http.server`, `127.0.0.1` only, `/`, `/search`, `/add`, `/song/<slug>`
+- [x] Host validated by parsing, not substring; path traversal rejected
+- [x] `bibi` with no arguments opens the app; `--port` to move it
+- [x] Slugs fold accents (`Drôle` → `drole`), found from real use
 
 ## Possible, only if actually missed
 

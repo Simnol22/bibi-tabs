@@ -1,10 +1,10 @@
 # BIBI-tabs
 
-Give it an Ultimate Guitar link. It saves the song and opens it with the chords
-sitting over the right syllables. That's the whole program.
+Search for a song, click it, read it with the chords sitting over the right
+syllables. That's the whole program.
 
 ```bash
-bibi https://tabs.ultimate-guitar.com/tab/oasis/wonderwall-chords-27596
+bibi          # opens the app: search box, and everything you've saved
 ```
 
 Songs are kept as plain text in `~/.bibi-tabs/`, so once a song is fetched you
@@ -22,10 +22,11 @@ pip install -e .
 ## Use
 
 ```bash
-bibi <ultimate-guitar-url>    # fetch it, keep it, open it
-bibi wonderwall               # open something already saved
-bibi --list                   # what's saved
-bibi <url> --no-open          # save without launching a browser
+bibi                          # the app — search, and your saved songs
+bibi <ultimate-guitar-url>    # skip the search, fetch this one
+bibi wonderwall               # open something already saved, no app needed
+bibi --list                   # what's saved, in the terminal
+bibi --port 9000              # if 8777 is taken
 ```
 
 Without the install step, `python -m bibi …` works the same.
@@ -33,17 +34,29 @@ Without the install step, `python -m bibi …` works the same.
 ## How it works
 
 ```
-UltimateGuitar.fetch(url) ─→ Song ─→ Library.save()      ~/.bibi-tabs/*.txt
-                               └───→ HtmlRenderer.write() → open in browser
+                    ┌─ Library.save() ────→ ~/.bibi-tabs/*.txt
+UltimateGuitar ─→ Song
+   .search()        └─ HtmlRenderer ──────→ browser
+   .fetch()
 ```
 
 | | |
 |---|---|
-| `bibi/song.py` | `Song`, `Line`, and the chord-line test |
+| `bibi/song.py` | `Song`, `Line`, `SearchResult`, and the chord-line test |
 | `bibi/ultimate_guitar.py` | everything UG-specific, and nothing else is |
 | `bibi/library.py` | plain text files in a folder |
-| `bibi/render.py` | one self-contained HTML page |
-| `bibi/cli.py` | `App` — wires the four together |
+| `bibi/render.py` | the song page and the landing page |
+| `bibi/server.py` | localhost-only web app, stdlib `http.server` |
+| `bibi/cli.py` | `App` — wires them together |
+
+**Why there's a server at all.** A browser cannot fetch an Ultimate Guitar page
+— CORS forbids it. So a search box in a web page needs something local to answer
+the click. It binds to `127.0.0.1`, starts when you run `bibi`, and dies when
+you close it. No deploy, no build step, no dependencies.
+
+Because `/add?url=` fetches on your behalf, it checks the host properly before
+making a request — substring matching would happily accept
+`evil-ultimate-guitar.com`.
 
 **The alignment is the point.** A UG page carries its sheet as JSON with chords
 wrapped in `[ch]…[/ch]`, laid over text that is *already* column-aligned. Strip
@@ -65,10 +78,11 @@ service; this is a personal tool and that was a deliberate call.
 pytest
 ```
 
-26 tests, no network — the UG parser is exercised against a synthetic page.
+52 tests, no network — the UG page and search parsers are exercised against
+synthetic pages, and the server's page building is tested without sockets.
 
 ## Not here on purpose
 
-Transposition, capo shifting, chord diagrams, search, sync, phone support. V1
-opens a song. If one of those turns out to be missed, it can be added to a
+Transposition, capo shifting, chord diagrams, sync, phone support. V1 finds a
+song and opens it. If one of those turns out to be missed, it can be added to a
 program this small without much drama.

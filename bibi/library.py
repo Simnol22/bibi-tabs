@@ -30,6 +30,13 @@ class Library:
             return []
         return sorted(self.home.glob("*.txt"))
 
+    def path_for_slug(self, slug: str) -> Path | None:
+        """Exact lookup. Rejects anything with a path separator in it."""
+        if not slug or "/" in slug or "\\" in slug or slug.startswith("."):
+            return None
+        path = self.home / f"{slug}.txt"
+        return path if path.is_file() else None
+
     def find(self, query: str) -> Path | None:
         """First file whose name contains every word of the query."""
         words = query.lower().split()

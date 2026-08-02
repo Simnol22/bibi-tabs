@@ -13,7 +13,8 @@ currently in flight.
 ## Stack
 
 Python 3.10+, **standard library only**. No dependencies, no build step, no
-server, no JavaScript.
+JavaScript. There is a local `http.server` app, bound to `127.0.0.1` and started
+by the command -- that is a UI shell, not infrastructure.
 
 ```bash
 conda activate bibi-tabs
@@ -38,7 +39,10 @@ bibi <ultimate-guitar-url>
 5. **Songs are plain text.** `~/.bibi-tabs/*.txt`, readable and editable without
    this program. The library must outlive the tool.
 6. **OOP, small classes.** One class, one job: `Song`, `UltimateGuitar`,
-   `Library`, `HtmlRenderer`, `App`.
+   `Library`, `HtmlRenderer`, `Server`, `App`.
+7. **The server stays local and unprivileged.** Bind `127.0.0.1` only. `/add`
+   fetches on the user's behalf, so validate the host properly before every
+   request -- any page in the browser can aim a GET at localhost.
 
 ## Known gotchas
 
@@ -53,6 +57,8 @@ bibi <ultimate-guitar-url>
   only picks colour. Do not let anything load-bearing depend on it.
 - **Pro tabs and tab-type pages have no `wiki_tab.content`** and raise
   `NotAChordPage`. That is correct behaviour, not a parsing failure.
+- **`matches()` must parse the URL, never substring-match.** `evil-ultimate-guitar.com`
+  contains `ultimate-guitar.com`.
 - **Scraping UG is against their ToS.** A knowing choice for personal use. Do
   not build anything that shares, republishes or bulk-downloads.
 

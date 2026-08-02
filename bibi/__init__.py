@@ -2,7 +2,17 @@
 
 from .library import Library
 from .render import HtmlRenderer
-from .song import Line, Song
+from .server import Server
+from .song import Line, SearchResult, Song
 from .ultimate_guitar import NotAChordPage, UltimateGuitar
 
-__all__ = ["Library", "HtmlRenderer", "Line", "Song", "NotAChordPage", "UltimateGuitar"]
+__all__ = [
+    "Library",
+    "HtmlRenderer",
+    "Line",
+    "NotAChordPage",
+    "SearchResult",
+    "Server",
+    "Song",
+    "UltimateGuitar",
+]

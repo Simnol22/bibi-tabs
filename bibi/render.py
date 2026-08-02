@@ -7,9 +7,10 @@ the syllable it belongs to. Chord lines get colour; nothing gets re-flowed.
 from __future__ import annotations
 
 import html
+import urllib.parse
 from pathlib import Path
 
-from .song import Song
+from .song import SearchResult, Song
 
 _CSS = """
 :root { color-scheme: light dark;
@@ -31,6 +32,23 @@ pre { max-width:60rem; margin:0 auto; overflow-x:auto;
 .c { color:var(--accent); font-weight:600; }
 a { color:var(--accent); }
 @media print { body { background:#fff; color:#000 } .c { color:#000; font-weight:700 } }
+
+/* landing page */
+.wrap { max-width:60rem; margin:0 auto; }
+form { display:flex; gap:.5rem; margin:1rem 0 2rem; }
+input[type=search] { flex:1; font:inherit; padding:.6rem .8rem; border-radius:8px;
+  border:1px solid #8883; background:var(--bg); color:var(--fg); }
+button { font:inherit; padding:.6rem 1rem; border-radius:8px; border:1px solid #8883;
+  background:var(--accent); color:#fff; cursor:pointer; }
+h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:.06em;
+     color:var(--muted); margin:2rem 0 .5rem; }
+ul { list-style:none; padding:0; margin:0; }
+li a { display:flex; align-items:baseline; gap:.6rem; padding:.6rem .3rem;
+       border-bottom:1px solid #8882; text-decoration:none; color:var(--fg); }
+li a:hover { color:var(--accent); }
+li .who { color:var(--muted); font-size:.9rem; }
+li .rate { margin-left:auto; color:var(--muted); font-size:.85rem; white-space:nowrap; }
+.empty { color:var(--muted); }
 """
 
 
@@ -65,6 +83,60 @@ class HtmlRenderer:
         if meta:
             parts.append(f'<div class="meta">{"".join(meta)}</div>')
         return "".join(parts)
+
+    def index(
+        self,
+        saved: list[Song],
+        query: str = "",
+        results: list[SearchResult] | None = None,
+    ) -> str:
+        """The landing page: search on top, your library underneath."""
+        sections = ""
+        if results is not None:
+            sections += f"<h2>Results for “{html.escape(query)}”</h2>"
+            sections += self._results(results)
+        sections += "<h2>Saved</h2>" + self._saved(saved)
+
+        return (
+            "<!doctype html>\n"
+            '<html lang="en"><head><meta charset="utf-8">'
+            '<meta name="viewport" content="width=device-width, initial-scale=1">'
+            f"<title>BIBI-tabs</title><style>{_CSS}</style></head>"
+            '<body><div class="wrap"><h1>BIBI-tabs</h1>'
+            '<form action="/search" method="get">'
+            f'<input type="search" name="q" placeholder="Search a song" '
+            f'value="{html.escape(query)}" autofocus>'
+            "<button>Search</button></form>"
+            f"{sections}</div></body></html>\n"
+        )
+
+    def _results(self, results: list[SearchResult]) -> str:
+        if not results:
+            return '<p class="empty">Nothing found. Try just the song title.</p>'
+        rows = []
+        for item in results:
+            link = f"/add?url={urllib.parse.quote(item.url, safe='')}"
+            votes = f"{item.rating:.1f} · {item.votes:,}" if item.votes else "unrated"
+            version = f"v{item.version}" if item.version else ""
+            rows.append(
+                f'<li><a href="{link}"><span>{html.escape(item.title)}</span>'
+                f'<span class="who">{html.escape(item.artist)} {version}</span>'
+                f'<span class="rate">{votes}</span></a></li>'
+            )
+        return f"<ul>{''.join(rows)}</ul>"
+
+    def _saved(self, saved: list[Song]) -> str:
+        if not saved:
+            return '<p class="empty">Nothing saved yet — search for something.</p>'
+        rows = []
+        for song in saved:
+            capo = f"capo {song.capo}" if song.capo else ""
+            rows.append(
+                f'<li><a href="/song/{song.slug}"><span>{html.escape(song.title)}</span>'
+                f'<span class="who">{html.escape(song.artist)}</span>'
+                f'<span class="rate">{capo}</span></a></li>'
+            )
+        return f"<ul>{''.join(rows)}</ul>"
 
     def _body(self, song: Song) -> str:
         rows = []

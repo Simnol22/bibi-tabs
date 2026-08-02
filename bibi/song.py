@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+import unicodedata
+from dataclasses import dataclass
 
 # Close enough to catch real chord symbols and reject ordinary words.
 _ROOT = r"[A-G][#b]?"
@@ -38,6 +39,18 @@ class Line:
 
 
 @dataclass(frozen=True)
+class SearchResult:
+    """One candidate sheet. Deliberately says nothing about where it came from."""
+
+    title: str
+    artist: str
+    url: str
+    version: int = 0
+    rating: float = 0.0
+    votes: int = 0
+
+
+@dataclass(frozen=True)
 class Song:
     title: str
     artist: str = ""
@@ -56,7 +69,9 @@ class Song:
     @property
     def slug(self) -> str:
         stem = f"{self.artist}-{self.title}" if self.artist else self.title
-        return re.sub(r"-+", "-", re.sub(r"[^a-z0-9]+", "-", stem.lower())).strip("-")
+        # Fold accents rather than dropping them, or "Drôle" becomes "dr-le".
+        folded = unicodedata.normalize("NFKD", stem).encode("ascii", "ignore").decode()
+        return re.sub(r"-+", "-", re.sub(r"[^a-z0-9]+", "-", folded.lower())).strip("-")
 
     def to_text(self) -> str:
         """A readable header, a blank line, then the sheet exactly as it is."""
