@@ -2,16 +2,27 @@
 
 ## Current State
 
-Planning refined, **still no application code**. The repo now contains
-`ARCHITECTURE.md`, `CLAUDE.md`, `.gitignore`, and these `.ai/` files.
-
-`bibi-tabs/` is now a standalone git repo (`main`, no commits yet). The old
-warning about it being nested inside `sattt_db_utils` is resolved — git commands
+**Phases 0 and 1 are done and committed.** Standalone git repo on `main`. The old
+warning about being nested inside `sattt_db_utils` is resolved — git commands
 here are safe.
+
+- `app/` — SvelteKit + TS strict + vitest, `adapter-static` in SPA mode, PWA
+  (manifest, service worker, generated icons). `npm run check` clean.
+- `app/src/lib/music/` — `chord.ts`, `spelling.ts`, `transpose.ts`. Zero imports
+  outside the folder, no `any`. **No `capo.ts`** — capo is an annotation.
+- `app/src/lib/chordpro/` — `parse.ts`, `serialize.ts`. Byte-exact round trip on
+  canonical text; messy input normalises once then holds.
+- `app/src/lib/import/text.ts` — the ≥80% chord-line heuristic.
+- `server/` — FastAPI, `/health`, static SPA mount with deep-link fallback,
+  `schema.sql`. 3 pytest tests.
+- Root `Dockerfile` (multi-stage) + `fly.toml`, written, never deployed.
+
+84 vitest tests, 3 pytest tests, all green.
 
 ## In flight
 
-Phase 0 scaffolding.
+Nothing. Next action is Phase 2 (see `TODO.md` → Current Sprint), which is the
+first phase with a UI.
 
 ## Open decisions
 
@@ -19,6 +30,32 @@ Phase 0 scaffolding.
   ukulele). **Licence unverified** — check before bundling. Alternatives:
   `szaza/guitar-chords-db-json` (99k chords, probably too many), ChordPro's own
   bundled definitions. Decide before Phase 2.
+
+## Decisions made while building Phase 1
+
+- **`transpose(token, semitones, targetKey) -> string`**, strings in and out,
+  rather than passing `Chord` objects around. The renderer holds raw ChordPro
+  tokens, so this is what it actually needs, and an unparseable token (`N.C.`,
+  a repeat mark) passes through untouched instead of being mangled. `Chord`
+  stays an implementation detail of `chord.ts`.
+- **Spelling stops at the twelve practical note names.** Pitch 11 in Gb major
+  comes back as `B`, not the theoretically correct `Cb`. Confirmed with Simon.
+  Pinned by a test so it reads as a decision, not an oversight.
+- **The slash bass is spelled by key signature**, same rule as the root — so
+  `F#m7b5/A` +1 into G major gives `A#` where a theorist writes `Bb`. Passing
+  the key the song is actually in (Gm) gives `Bb`. Also confirmed and pinned.
+- **`quality` and `ext` are opaque text.** Only root and bass carry pitch, so
+  transposition never has to understand `7b5` — and a sheet reads back exactly
+  as written.
+- **`parseChord` returning null is load-bearing**, not defensive: the chord-line
+  heuristic counts surviving tokens. Hence the tests asserting that `Chorus`,
+  `Bass`, `Dad`, and solfège are *not* chords.
+- **Chord-only lines pad to their original columns** rather than collapsing to
+  single spaces — on an instrumental line the width of a gap is the timing.
+- **`[Chorus]` becomes `{comment: Chorus}`** on import. Passing it through would
+  make ChordPro read it as a chord named "Chorus" — corruption, not ugliness.
+- **Tabs expand at 8 columns before pairing**, since a chord finds its syllable
+  by column index.
 
 ## Decisions made this session (2026-08-01, second pass)
 

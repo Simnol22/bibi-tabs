@@ -2,11 +2,13 @@
 
 ## Current Sprint
 
-- [x] Move `bibi-tabs/` out of the nested `sattt_db_utils` repo and `git init` it standalone
-- [ ] Phase 0: scaffold SvelteKit + TS strict + vitest in `app/`
-- [ ] Phase 0: scaffold FastAPI skeleton + `schema.sql` in `server/`
-- [ ] Phase 1: `music/chord.ts` — parse chord symbols, test-first
-- [ ] Phase 1: `music/transpose.ts` + `music/spelling.ts` — shift + enharmonics
+Phases 0 and 1 are done. Next is Phase 2 — the first phase with a UI.
+
+- [ ] Phase 2: `db/schema.ts` — Dexie tables mirroring `server/schema.sql`
+- [ ] Phase 2: library route — list, search, soft delete
+- [ ] Phase 2: paste-in screen → `textToChordPro` → review → save
+- [ ] Phase 2: `ChordSheet.svelte` — flowing layout, chords above syllables
+- [ ] Phase 2: pick a fingering dataset and **verify its licence**
 
 ---
 
@@ -30,14 +32,15 @@
 Pure logic, no I/O, written test-first. No `capo.ts`: capo is an annotation, not
 arithmetic, so there is nothing to compute.
 
-- [ ] `music/chord.ts` — `parseChord("F#m7b5/A")` → `{root, quality, ext, bass}`
-- [ ] `music/spelling.ts` — sharp/flat choice from target key on circle of fifths
-- [ ] `music/transpose.ts` — shift a parsed chord by N semitones; `transposeKey`
-- [ ] `chordpro/parse.ts` — ChordPro text → AST (directives, sections, inline chords)
-- [ ] `chordpro/serialize.ts` — AST → ChordPro text (round-trip stable)
-- [ ] `import/text.ts` — chord-over-lyric → ChordPro (the ≥80% heuristic)
-- [ ] Fixtures + tests: instrumental lines, section headers, tabs vs spaces, overhang
-- [ ] Unit tests for all of the above, including enharmonic and slash-chord cases
+- [x] `music/chord.ts` — `parseChord("F#m7b5/A")` → `{root, quality, ext, bass}`
+- [x] `music/spelling.ts` — sharp/flat choice from target key on circle of fifths
+- [x] `music/transpose.ts` — `transpose(token, semitones, targetKey)`; `transposeKey`
+- [x] `chordpro/parse.ts` — ChordPro text → AST (directives, comments, inline chords)
+- [x] `chordpro/serialize.ts` — AST → ChordPro text (round-trip stable)
+- [x] `import/text.ts` — chord-over-lyric → ChordPro (the ≥80% heuristic)
+- [x] Fixtures + tests: instrumental lines, section headers, tabs vs spaces, overhang
+- [x] Unit tests for all of the above, including enharmonic and slash-chord cases
+      — 84 tests, `npm run check` clean, no `any`
 
 ## Phase 2 — Library + player ⭐
 
