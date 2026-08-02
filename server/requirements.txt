@@ -1,6 +1,0 @@
-fastapi
-uvicorn[standard]
-
-# tests
-pytest
-httpx2

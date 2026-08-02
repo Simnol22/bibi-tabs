@@ -1,148 +1,68 @@
 # RELEVANT_STATE — BIBI-tabs
 
-## ⚠️ Phase 2 has never been run
-
-The Svelte components, the routes and the Dexie wiring **compile and type-check
-but have not been executed once**. The 103 unit tests cover pure logic only —
-none of them touch a component or IndexedDB. Treat every UI behaviour as
-unverified until someone opens the app. First action next session: `npm run dev`,
-click through, fix what breaks.
-
-Known-incomplete: pinch-to-zoom (only the `A⁻ A⁺` buttons are wired).
-
 ## Current State
 
-**Phases 0 and 1 are done and committed.** Standalone git repo on `main`. The old
-warning about being nested inside `sattt_db_utils` is resolved — git commands
-here are safe.
+**V1 works.** Fetches a live Ultimate Guitar page, saves it, opens it with the
+chords in the right columns. Verified end to end, not just by unit test.
 
-- `app/` — SvelteKit + TS strict + vitest, `adapter-static` in SPA mode, PWA
-  (manifest, service worker, generated icons). `npm run check` clean.
-- `app/src/lib/music/` — `chord.ts`, `spelling.ts`, `transpose.ts`. Zero imports
-  outside the folder, no `any`. **No `capo.ts`** — capo is an annotation.
-- `app/src/lib/chordpro/` — `parse.ts`, `serialize.ts`. Byte-exact round trip on
-  canonical text; messy input normalises once then holds.
-- `app/src/lib/import/text.ts` — the ≥80% chord-line heuristic.
-- `server/` — FastAPI, `/health`, static SPA mount with deep-link fallback,
-  `schema.sql`. 3 pytest tests.
-- Root `Dockerfile` (multi-stage) + `fly.toml`, written, never deployed.
+```
+bibi <ug-url>   →  ~/.bibi-tabs/oasis-wonderwall.txt  +  a browser tab
+```
 
-Phase 2 added, on top of the above:
-
-- `app/src/lib/music/key.ts` — key detection, seeds the player's default key.
-- `app/src/lib/fingering/` — chords-db (MIT) flattened to `"key|suffix"`, 256 KB,
-  plus `guitar.ts` lookup and the vendored licence.
-- `app/src/lib/db/` — `schema.ts` (Dexie) and `songs.ts` (CRUD, soft delete).
-- `app/src/lib/stores/device.svelte.ts` — fontSize + layout, localStorage only.
-- `app/src/lib/components/` — ChordSheet, ChordDiagram, Transposer.
-- Routes: `/` library, `/import` paste-in, `/song/[id]` player.
-
-103 vitest tests, 3 pytest tests, all green. `npm run check` clean, no `any`.
+26 tests pass, no network needed. conda env `bibi-tabs` (python 3.11), zero
+dependencies.
 
 ## In flight
 
-Phase 2 is written but unrun — see the warning at the top of this file.
+Nothing. Waiting on Simon using it on real songs.
 
-## Decisions made while building Phase 2
+## The rewrite (2026-08-02)
 
-- **Fingering dataset settled**: chords-db, MIT © 2016 David Rubert, licence
-  verified and vendored. Flattened to a `"key|suffix"` map, `midi` stripped
-  (audio is a non-goal): 256 KB, 828 chords, 3283 voicings. Lives in
-  `lib/fingering/`, outside `lib/music/`, because music/ is pure theory with no
-  data files. A slash chord the dataset lacks falls back to the base shape.
-- **No `dirty` flag on the local song row.** "What needs pushing" is derivable
-  as `updated_at > lastSyncedAt`, so Phase 4 can add sync without a column every
-  write would have to remember to maintain.
-- **No `owner_id` client-side** either — the server assigns it from the
-  authenticated request, so a local copy would be dead weight.
-- **`deleted_at` is not a Dexie index.** IndexedDB drops nulls from indexes, so
-  live rows would fall out of it. Filtering in JS is correct at this size.
-- **Flowing layout splits per word, not per chord run**, so a long lyric wraps on
-  a phone instead of overflowing. Only the first word of a run carries the chord.
-- **The import screen auto-detects ChordPro** (any inline `[C]`) and skips the
-  text parser rather than running it twice over already-converted text.
+The SvelteKit PWA + FastAPI backend was deleted and replaced with ~300 lines of
+Python. Simon's call: too complicated, too many features, and the one thing he
+wanted — a UG link opening as a readable sheet — was the one thing it couldn't
+do. Everything is preserved in git history:
 
-## Decisions made while building Phase 1
+| | |
+|---|---|
+| `f0646e4` | Phase 0 scaffold |
+| `5d438cf` | music theory + ChordPro, 84 tests — port from here if transposition is ever wanted |
+| `8ed0bb1` | library, player, chord diagrams; includes the vetted MIT chords-db dataset |
 
-- **`transpose(token, semitones, targetKey) -> string`**, strings in and out,
-  rather than passing `Chord` objects around. The renderer holds raw ChordPro
-  tokens, so this is what it actually needs, and an unparseable token (`N.C.`,
-  a repeat mark) passes through untouched instead of being mangled. `Chord`
-  stays an implementation detail of `chord.ts`.
-- **Spelling stops at the twelve practical note names.** Pitch 11 in Gb major
-  comes back as `B`, not the theoretically correct `Cb`. Confirmed with Simon.
-  Pinned by a test so it reads as a decision, not an oversight.
-- **The slash bass is spelled by key signature**, same rule as the root — so
-  `F#m7b5/A` +1 into G major gives `A#` where a theorist writes `Bb`. Passing
-  the key the song is actually in (Gm) gives `Bb`. Also confirmed and pinned.
-- **`quality` and `ext` are opaque text.** Only root and bass carry pitch, so
-  transposition never has to understand `7b5` — and a sheet reads back exactly
-  as written.
-- **`parseChord` returning null is load-bearing**, not defensive: the chord-line
-  heuristic counts surviving tokens. Hence the tests asserting that `Chorus`,
-  `Bass`, `Dad`, and solfège are *not* chords.
-- **Chord-only lines pad to their original columns** rather than collapsing to
-  single spaces — on an instrumental line the width of a gap is the timing.
-- **`[Chorus]` becomes `{comment: Chorus}`** on import. Passing it through would
-  make ChordPro read it as a chord named "Chorus" — corruption, not ugliness.
-- **Tabs expand at 8 columns before pairing**, since a chord finds its syllable
-  by column index.
+The constraint that settled it: **a browser cannot fetch a UG page** (CORS), so
+the web version needed a server running purely to read a link. Python doesn't.
 
-## Decisions made this session (2026-08-01, second pass)
+## Verified against a live page (2026-08-02)
 
-- **Hosting: one Fly app.** `adapter-static`; FastAPI serves the build at `/` and
-  the API at `/api`. One domain, one deploy, no CORS. Rejected: a separate static
-  host (two deploys to keep in step, CORS on every route) and `adapter-node` (a
-  second runtime rendering pages with no data, since the library lives in the
-  browser). Dockerfile is multi-stage — node builds `app/`, python runs it.
+Worth re-checking before debugging anything UG-related, since this is the part
+that rots:
 
-- **Capo is an annotation, not a transform.** Transpose is the only thing that
-  moves chords; capo is a number printed at the top of the sheet, the way a paper
-  sheet says "Capo 3". This relaxes the old invariant 3. Accepted cost: the app
-  can't say "capo 3, play G shapes" for a song stored in Bb — you set transpose
-  −3 and note the capo yourself, and the screen ends up identical. Cheap to
-  upgrade later (same primitive, minus sign), so it stays in Phase 5.
-  Consequence: **`music/capo.ts` no longer exists** — there is no arithmetic.
-- **Lock/edit added.** Sheet is locked by default. Unlock reveals the **raw
-  ChordPro source in the stored key** in a textarea — chord changes, placement,
-  add/remove, structure, all as text, no bespoke editing UI. Chosen over
-  tap-a-chord-to-edit specifically because editing a *transposed* view and
-  writing it back silently re-keys the song. Editing raw source in the original
-  key makes that unrepresentable. Inline editing is Phase 5 and must shift by
-  `−transpose` on save.
-- **Offline scope narrowed to what's true.** Library and player never touch the
-  network; search and sync are online features that degrade rather than block.
-  Auto-save writes to IndexedDB immediately and syncs in the background, so a
-  local write always succeeds.
-- **Prefs split by what the state is about.** `song.prefs = {transpose, capo}`
-  syncs; `{fontSize, layout}` lives in `localStorage` and never syncs — syncing
-  font size between a phone and a laptop would be actively wrong. Zoom control
-  (`A⁻ A⁺` + pinch) added.
-- **Multi-account promoted from hypothetical to planned direction.** Other people
-  eventually get accounts on the same server with their own private libraries.
-  Not built now; the only concessions are `owner_id` on every row and a single
-  `current_owner()` auth seam. No `user` table yet. Noted: once multi-account
-  exists, `/api/proxy` and search must sit behind the same seam.
-- **Text parser moved to Phase 1**, resolving a contradiction — `ARCHITECTURE.md`
-  called it "the foundation, not a fallback" while `TODO.md` had it in Phase 2.
-  It's pure, I/O-free and edge-case-heavy, same as the rest of Phase 1.
-- **`music/key.ts` moved to Phase 2** — nothing consumes it until the player
-  needs a default key, so writing it in Phase 1 would be building ahead of need.
+- Sheet lives at `store.page.data.tab_view.wiki_tab.content`, inside an
+  HTML-escaped JSON blob in `<div class="js-store" data-content="…">`.
+- Metadata: `data.tab.song_name` / `.artist_name` / `.tonality_name`, and
+  `data.tab_view.meta.capo` / `.tuning`.
+- Chords are `[ch]…[/ch]`; aligned sections are wrapped in `[tab]…[/tab]`.
+- **Markers overlay already-aligned text.** Confirmed on a real page: chords at
+  columns 0, 5, 9, 13 above a 19-character lyric line, unchanged after
+  stripping. So the renderer never adjusts spacing.
+- Line endings are CRLF.
 
-## Decisions from the first planning session (2026-08-01)
+## Decisions worth keeping
 
-Still standing, condensed: PWA over Flutter; SvelteKit over React; self-hosted on
-Fly.io + Neon rather than Supabase; URL importer included despite the UG ToS
-caveat (isolated adapters, disable toggle, mandatory review screen); in-app
-search hits each site's own endpoint rather than Google; paste-text parser is
-infrastructure, not a feature; autoscroll deferred to Phase 5.
+- **One code path for chord lines.** UG's `[ch]` markers would identify chord
+  lines perfectly, but a saved file no longer has them. Rather than one rule at
+  fetch and another at load, everything uses the ≥80% heuristic. It only picks
+  colour, so being wrong is cosmetic.
+- **Saved files are clean text, not ChordPro.** Readable and hand-editable; a
+  file Simon writes himself renders the same as a fetched one.
+- **`~/.bibi-tabs/`, not the repo.** Songs are copyrighted; they should not end
+  up in git.
+- **No abstract `Source` base class.** There is one source. `UltimateGuitar` has
+  a `matches()` method, which is all the shape a second one would need.
 
-## Known issues / gotchas
+## Known limits
 
-- `/api/proxy` is an SSRF hole without a domain allowlist and private-IP refusal.
-  Same-commit requirement, not a follow-up.
-- UG's page structure (JSON blob, `[ch]…[/ch]`) is accurate as of planning but
-  unverified against a live page. Confirm before building the adapter.
-- Dev runs vite on `:5173` and FastAPI on `:8000` — cross-origin unless the vite
-  dev proxy forwards `/api` to `:8000`. Set that up in Phase 0 so dev matches
-  production.
+- `[tab]` blocks holding riff notation rather than chords render as-is. Fine,
+  but untested against a tab-heavy song.
+- A chord line whose chords run past the end of the lyric is untested.
+- Only Ultimate Guitar. Boîte à Chansons was in the old plan and is not here.

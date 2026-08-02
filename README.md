@@ -1,67 +1,74 @@
 # BIBI-tabs
 
-An ad-free, offline-first guitar chord sheet library and player. Import songs
-once, own them forever, play them on laptop, phone or tablet from the same
-library — with transposition, chord diagrams, and no signal required.
-
-Songs are stored exactly once, as **ChordPro**, in their original key. Everything
-else — transposition, layout, font size — is computed at display time. The format
-is open and 40 years old, so the library outlives the app.
-
-> **Status: Phase 0.** Scaffolding only. See [`.ai/TODO.md`](.ai/TODO.md) for the
-> build order and [`ARCHITECTURE.md`](ARCHITECTURE.md) for why the design is what
-> it is.
-
-## Layout
-
-```
-app/        SvelteKit PWA — music theory, ChordPro, storage, UI. Nearly all the logic.
-server/     FastAPI — sync API + fetch proxy, and it serves the built app. Thin on purpose.
-Dockerfile  Builds both halves into one image.
-fly.toml    Deploy config. Written, not deployed.
-.ai/        Working context files (see CLAUDE.md).
-```
-
-The app builds to static files that FastAPI serves at `/`, so there is **one Fly
-app, one domain, one deploy, and no CORS**. There is nothing to server-render —
-the library lives in IndexedDB in the browser.
-
-## Running it
-
-Two processes in dev. Vite proxies `/api` to the backend, so dev is same-origin
-just like production.
+Give it an Ultimate Guitar link. It saves the song and opens it with the chords
+sitting over the right syllables. That's the whole program.
 
 ```bash
-# frontend — http://localhost:5173
-cd app
-npm install
-npm run dev
-
-# backend — http://localhost:8000
-cd server
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/uvicorn main:app --reload --port 8000
+bibi https://tabs.ultimate-guitar.com/tab/oasis/wonderwall-chords-27596
 ```
 
-The backend is optional until Phase 4. The app works entirely offline without it.
+Songs are kept as plain text in `~/.bibi-tabs/`, so once a song is fetched you
+can read it with no connection — or with no BIBI-tabs, since they're just files.
+
+## Install
+
+No dependencies. Standard library only.
+
+```bash
+conda activate bibi-tabs      # python 3.10+
+pip install -e .
+```
+
+## Use
+
+```bash
+bibi <ultimate-guitar-url>    # fetch it, keep it, open it
+bibi wonderwall               # open something already saved
+bibi --list                   # what's saved
+bibi <url> --no-open          # save without launching a browser
+```
+
+Without the install step, `python -m bibi …` works the same.
+
+## How it works
+
+```
+UltimateGuitar.fetch(url) ─→ Song ─→ Library.save()      ~/.bibi-tabs/*.txt
+                               └───→ HtmlRenderer.write() → open in browser
+```
+
+| | |
+|---|---|
+| `bibi/song.py` | `Song`, `Line`, and the chord-line test |
+| `bibi/ultimate_guitar.py` | everything UG-specific, and nothing else is |
+| `bibi/library.py` | plain text files in a folder |
+| `bibi/render.py` | one self-contained HTML page |
+| `bibi/cli.py` | `App` — wires the four together |
+
+**The alignment is the point.** A UG page carries its sheet as JSON with chords
+wrapped in `[ch]…[/ch]`, laid over text that is *already* column-aligned. Strip
+the markers and the columns are still right — so the renderer just needs a
+`<pre>` and the discipline not to reflow anything.
+
+**Chord lines are found by counting.** A line is chords when at least 80% of its
+tokens parse as chord symbols. It only decides colour, so a wrong answer is a
+mis-coloured line, never mangled text.
+
+**Ultimate Guitar will break this.** Their markup changes. When it does,
+`ultimate_guitar.py` is the only file to fix — that's why it's the only one that
+knows what a `[ch]` tag is. Scraping their pages is also against their terms of
+service; this is a personal tool and that was a deliberate call.
 
 ## Tests
 
-The music theory and parsers are written test-first — they are pure logic with
-nasty edge cases, which is exactly where tests pay for themselves.
-
 ```bash
-cd app    && npm run test          # vitest;  -- --watch to iterate
-cd server && .venv/bin/python -m pytest
+pytest
 ```
 
-## Deploying
+26 tests, no network — the UG parser is exercised against a synthetic page.
 
-Not yet done. When it is, from the repo root:
+## Not here on purpose
 
-```bash
-fly deploy
-```
-
-The Dockerfile builds the PWA with Node, then copies the output into a Python
-image that serves it alongside the API.
+Transposition, capo shifting, chord diagrams, search, sync, phone support. V1
+opens a song. If one of those turns out to be missed, it can be added to a
+program this small without much drama.
