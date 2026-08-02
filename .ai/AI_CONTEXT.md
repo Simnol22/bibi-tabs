@@ -43,7 +43,9 @@ app/src/lib/
   music/      pure theory: chord parse, transpose, enharmonics, key (no capo.ts)
   chordpro/   parse + serialize ChordPro
   import/     adapters/{ug,boiteachansons}.ts + the chord-over-lyric text parser
-  db/         dexie schema + sync engine
+  fingering/  chords-db lookup (MIT) — a data table, so kept out of music/
+  db/         dexie schema + song CRUD (+ sync engine, Phase 4)
+  stores/     device.svelte.ts — per-device prefs, never synced
   components/ ChordSheet, ChordDiagram, Transposer, …
 server/
   routers/    songs (CRUD+delta), proxy (allowlisted fetch), search

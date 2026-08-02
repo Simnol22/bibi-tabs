@@ -1,5 +1,15 @@
 # RELEVANT_STATE — BIBI-tabs
 
+## ⚠️ Phase 2 has never been run
+
+The Svelte components, the routes and the Dexie wiring **compile and type-check
+but have not been executed once**. The 103 unit tests cover pure logic only —
+none of them touch a component or IndexedDB. Treat every UI behaviour as
+unverified until someone opens the app. First action next session: `npm run dev`,
+click through, fix what breaks.
+
+Known-incomplete: pinch-to-zoom (only the `A⁻ A⁺` buttons are wired).
+
 ## Current State
 
 **Phases 0 and 1 are done and committed.** Standalone git repo on `main`. The old
@@ -17,19 +27,40 @@ here are safe.
   `schema.sql`. 3 pytest tests.
 - Root `Dockerfile` (multi-stage) + `fly.toml`, written, never deployed.
 
-84 vitest tests, 3 pytest tests, all green.
+Phase 2 added, on top of the above:
+
+- `app/src/lib/music/key.ts` — key detection, seeds the player's default key.
+- `app/src/lib/fingering/` — chords-db (MIT) flattened to `"key|suffix"`, 256 KB,
+  plus `guitar.ts` lookup and the vendored licence.
+- `app/src/lib/db/` — `schema.ts` (Dexie) and `songs.ts` (CRUD, soft delete).
+- `app/src/lib/stores/device.svelte.ts` — fontSize + layout, localStorage only.
+- `app/src/lib/components/` — ChordSheet, ChordDiagram, Transposer.
+- Routes: `/` library, `/import` paste-in, `/song/[id]` player.
+
+103 vitest tests, 3 pytest tests, all green. `npm run check` clean, no `any`.
 
 ## In flight
 
-Nothing. Next action is Phase 2 (see `TODO.md` → Current Sprint), which is the
-first phase with a UI.
+Phase 2 is written but unrun — see the warning at the top of this file.
 
-## Open decisions
+## Decisions made while building Phase 2
 
-- **Fingering dataset.** Leading candidate `tombatossals/chords-db` (also covers
-  ukulele). **Licence unverified** — check before bundling. Alternatives:
-  `szaza/guitar-chords-db-json` (99k chords, probably too many), ChordPro's own
-  bundled definitions. Decide before Phase 2.
+- **Fingering dataset settled**: chords-db, MIT © 2016 David Rubert, licence
+  verified and vendored. Flattened to a `"key|suffix"` map, `midi` stripped
+  (audio is a non-goal): 256 KB, 828 chords, 3283 voicings. Lives in
+  `lib/fingering/`, outside `lib/music/`, because music/ is pure theory with no
+  data files. A slash chord the dataset lacks falls back to the base shape.
+- **No `dirty` flag on the local song row.** "What needs pushing" is derivable
+  as `updated_at > lastSyncedAt`, so Phase 4 can add sync without a column every
+  write would have to remember to maintain.
+- **No `owner_id` client-side** either — the server assigns it from the
+  authenticated request, so a local copy would be dead weight.
+- **`deleted_at` is not a Dexie index.** IndexedDB drops nulls from indexes, so
+  live rows would fall out of it. Filtering in JS is correct at this size.
+- **Flowing layout splits per word, not per chord run**, so a long lyric wraps on
+  a phone instead of overflowing. Only the first word of a run carries the chord.
+- **The import screen auto-detects ChordPro** (any inline `[C]`) and skips the
+  text parser rather than running it twice over already-converted text.
 
 ## Decisions made while building Phase 1
 

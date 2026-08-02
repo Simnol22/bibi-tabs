@@ -2,13 +2,13 @@
 
 ## Current Sprint
 
-Phases 0 and 1 are done. Next is Phase 2 — the first phase with a UI.
+Phase 2 is written but **not yet run**. Everything below is about closing that gap
+before starting Phase 3.
 
-- [ ] Phase 2: `db/schema.ts` — Dexie tables mirroring `server/schema.sql`
-- [ ] Phase 2: library route — list, search, soft delete
-- [ ] Phase 2: paste-in screen → `textToChordPro` → review → save
-- [ ] Phase 2: `ChordSheet.svelte` — flowing layout, chords above syllables
-- [ ] Phase 2: pick a fingering dataset and **verify its licence**
+- [ ] Run `npm run dev`, click through the app, fix whatever is broken
+- [ ] Check the player on an actual phone — flowing layout and tap targets
+- [ ] Pinch-to-zoom on touch (buttons work; the gesture is not wired)
+- [ ] Then Phase 3: `server/routers/proxy.py` with allowlist + private-IP refusal
 
 ---
 
@@ -44,21 +44,24 @@ arithmetic, so there is nothing to compute.
 
 ## Phase 2 — Library + player ⭐
 
-- [ ] `music/key.ts` — guess song key from chord set (seeds the default display key)
-- [ ] `db/schema.ts` — Dexie tables mirroring the server schema
-- [ ] Library route: list, search by title/artist/lyrics, delete (soft)
-- [ ] Paste-in screen → parse → review → save
-- [ ] `components/ChordSheet.svelte` — flowing layout (chords above syllables)
-- [ ] Monospace layout mode + toggle
-- [ ] `components/Transposer.svelte` — key ± and a capo *number* (annotation only)
-- [ ] Lock/unlock: locked by default; unlock → raw ChordPro textarea in the stored key
-- [ ] Auto-save edits to IndexedDB (local write always succeeds; sync is separate)
-- [ ] Zoom: `A⁻ A⁺` and pinch
-- [ ] Prefs split — `song.prefs` = `{transpose, capo}` (synced);
+- [x] `music/key.ts` — guess song key from chord set (seeds the default display key)
+- [x] `db/schema.ts` + `db/songs.ts` — Dexie tables mirroring the server schema
+- [x] Library route: list, search by title/artist/lyrics, delete (soft)
+- [x] Paste-in screen → parse → review → save
+- [x] `components/ChordSheet.svelte` — flowing layout (chords above syllables)
+- [x] Monospace layout mode + toggle
+- [x] `components/Transposer.svelte` — key ± and a capo *number* (annotation only)
+- [x] Lock/unlock: locked by default; unlock → raw ChordPro textarea in the stored key
+- [x] Auto-save edits to IndexedDB (local write always succeeds; sync is separate)
+- [x] Zoom: `A⁻ A⁺` buttons
+- [x] Prefs split — `song.prefs` = `{transpose, capo}` (synced);
       `localStorage` = `{fontSize, layout}` (per-device, never synced)
-- [ ] Pick a fingering dataset + **verify its licence** before bundling
-- [ ] `components/ChordDiagram.svelte` — SVG render, follows the displayed chord
-- [ ] Tap a chord → diagram sheet with alternate voicings
+- [x] Fingering dataset chosen: chords-db, **MIT verified**, vendored with its licence
+- [x] `components/ChordDiagram.svelte` — SVG render, follows the displayed chord
+- [x] Tap a chord → diagram sheet with alternate voicings
+- [ ] **Pinch-to-zoom** — only the `A⁻ A⁺` buttons exist so far
+- [ ] **Run the UI and fix what's broken.** 103 unit tests cover the pure logic;
+      the Svelte components and IndexedDB wiring have never been executed.
 
 ## Phase 3 — Import
 

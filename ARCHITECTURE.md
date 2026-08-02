@@ -296,11 +296,15 @@ covering guitar; ukulele and piano are a later, additive change since the
 renderer takes a generic fingering shape). Tapping a chord in the sheet opens
 alternate voicings. Diagrams follow the **displayed** chord.
 
-Candidate datasets (licence unverified — settle before bundling):
-[tombatossals/chords-db](https://github.com/tombatossals/chords-db) (leading —
-also covers ukulele),
-[szaza/guitar-chords-db-json](https://github.com/szaza/guitar-chords-db-json)
-(99k chords, likely more than needed), and ChordPro's own bundled definitions.
+The dataset is [tombatossals/chords-db](https://github.com/tombatossals/chords-db)
+— **MIT, © 2016 David Rubert**, licence verified and vendored alongside the data
+at `app/src/lib/fingering/LICENSE-chords-db`. Flattened to a `"key|suffix"` map
+and stripped of its `midi` arrays (audio is an explicit non-goal), it comes to
+256 KB for 828 chords and 3283 voicings. It also covers ukulele, which is what
+makes the Phase 5 additive change cheap.
+
+It lives in `app/src/lib/fingering/`, deliberately outside `lib/music/`:
+music/ is pure theory with no data files, and this is a lookup table.
 
 ---
 
