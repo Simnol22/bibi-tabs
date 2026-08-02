@@ -53,6 +53,8 @@ has a link back to the library.
 | `bibi/server.py` | localhost-only web app, stdlib `http.server` |
 | `bibi/config.py` | one small JSON file, one setting so far |
 | `bibi/chords.py` | chord symbols, transposition, enharmonic spelling. Pure. |
+| `bibi/fingering.py` | chord symbol to fret positions (chords-db, MIT) |
+| `bibi/diagram.py` | a fret shape as an SVG `<symbol>` |
 | `bibi/cli.py` | `App` — wires them together |
 
 **Why there's a server at all.** A browser cannot fetch an Ultimate Guitar page
@@ -80,6 +82,13 @@ Spelling follows the key the song lands *in*, not a fixed table — up one from 
 is `Bb`, never `A#`. It stops at the twelve practical note names, so Gb major
 prints `B` where strict theory wants `Cb`.
 
+**Hover or tap a chord to see its shape.** Diagrams come from
+[chords-db](https://github.com/tombatossals/chords-db) (MIT, © 2016 David
+Rubert), bundled at 256 KB so they work offline. Each distinct chord is drawn
+once as an SVG `<symbol>` and referenced with `<use>` — a sheet with 154 chord
+popups over 5 shapes stays a 35 KB page. Shown with CSS `:hover` and `:focus`,
+so there is no JavaScript and it still works on touch and by keyboard.
+
 **Chord lines are found by counting.** A line is chords when at least 80% of its
 tokens parse as chord symbols. It only decides colour, so a wrong answer is a
 mis-coloured line, never mangled text.
@@ -95,7 +104,7 @@ service; this is a personal tool and that was a deliberate call.
 pytest
 ```
 
-100 tests, no network — the UG page and search parsers are exercised against
+126 tests, no network — the UG page and search parsers are exercised against
 synthetic pages, and the server's page building is tested without sockets.
 
 ## Where songs live
@@ -110,6 +119,6 @@ putting them there. The setting is stored separately, in
 
 ## Not here on purpose
 
-Capo shifting, chord diagrams, sync, phone support. Transposition arrived when
-it was actually wanted. If one of those turns out to be missed, it can be added to a
+Capo shifting, sync, phone support, a second site. Transposition and diagrams
+arrived when they were actually wanted. If one of those turns out to be missed, it can be added to a
 program this small without much drama.

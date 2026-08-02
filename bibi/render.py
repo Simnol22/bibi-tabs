@@ -7,10 +7,12 @@ the syllable it belongs to. Chord lines get colour; nothing gets re-flowed.
 from __future__ import annotations
 
 import html
+import re
 import urllib.parse
 from pathlib import Path  # noqa: TC003 - used in signatures at runtime
 
 from .chords import MAX_TRANSPOSE, Transposer, transpose_key
+from .diagram import Diagrams
 from .song import SearchResult, Song
 
 _CSS = """
@@ -27,7 +29,9 @@ h1 { margin:0; font-size:1.4rem; }
 .meta { margin-top:.5rem; display:flex; gap:1rem; flex-wrap:wrap;
         color:var(--muted); font-size:.85rem; }
 .meta b { color:var(--accent); }
-pre { max-width:60rem; margin:0 auto; overflow-x:auto;
+/* No overflow container: it would clip the chord diagrams. Long lines scroll
+   the page instead, which is what a monospace chord sheet wants anyway. */
+pre { max-width:60rem; margin:0 auto; overflow:visible;
       font-family: ui-monospace, "SF Mono", Menlo, monospace;
       font-size:15px; line-height:1.5; white-space:pre; }
 .c { color:var(--accent); font-weight:600; }
@@ -75,6 +79,18 @@ nav a { text-decoration:none; }
 .tr .reset { min-width:0; font-size:.8rem; border:0; }
 .meta s { opacity:.55; }
 @media print { nav, .tr { display:none } }
+
+/* chord diagrams -- hover on a pointer, tap or tab elsewhere. No JavaScript. */
+.defs { display:none; }
+.ch { position:relative; cursor:help; outline:none; }
+.ch:hover, .ch:focus { text-decoration:underline dotted; }
+.pop { display:none; position:absolute; top:1.7em; left:-.4em; z-index:9;
+       background:var(--bg); border:1px solid #8884; border-radius:10px;
+       padding:.5rem .6rem .35rem; box-shadow:0 6px 22px rgb(0 0 0 / .18);
+       color:var(--fg); }
+.ch:hover .pop, .ch:focus .pop, .ch:focus-within .pop { display:block; }
+.pop svg { display:block; width:104px; height:120px; }
+@media print { .pop { display:none !important } }
 """
 
 
@@ -86,14 +102,17 @@ class HtmlRenderer:
         save_url: str | None = None,
         saved: bool = False,
         semitones: int = 0,
+        transpose_url: str | None = None,
     ) -> str:
         """A song page.
 
         `home` adds a back link -- omitted for the standalone file the CLI
         writes, where there is nowhere to go back to. `save_url` adds the save
         button, for a song that has been fetched but not kept yet. `semitones`
-        shifts the chords for display only; the stored song never changes.
+        shifts the chords for display only; the stored song never changes, and
+        `transpose_url` is a `{t}` template for where the +/- buttons point.
         """
+        body, defs = self._body(song, semitones)
         return (
             "<!doctype html>\n"
             f'<html lang="en"><head><meta charset="utf-8">'
@@ -101,23 +120,27 @@ class HtmlRenderer:
             f"<title>{html.escape(song.title)}</title><style>{_CSS}</style></head>"
             f"<body>{self._nav(home, save_url, saved)}"
             f"<header>{self._header(song, semitones)}"
-            f"{self._controls(song, bool(home) and saved, semitones)}</header>"
-            f"<pre>{self._body(song, semitones)}</pre></body></html>\n"
+            f"{self._transposer(transpose_url, semitones)}</header>"
+            f"<pre>{body}</pre>{defs}</body></html>\n"
         )
 
-    def _transposer(self, song: Song, semitones: int) -> str:
-        """Plain links: transposing changes nothing on disk, so GET is right."""
+    def _transposer(self, url: str | None, semitones: int) -> str:
+        """Plain links: transposing changes nothing on disk, so GET is right.
+
+        `url` is a `{t}` template, absent for the CLI's standalone file where
+        there is no server to ask for another rendering.
+        """
+        if url is None:
+            return ""
         down = max(-MAX_TRANSPOSE, semitones - 1)
         up = min(MAX_TRANSPOSE, semitones + 1)
         showing = f"+{semitones}" if semitones > 0 else str(semitones)
-        reset = (
-            f'<a class="reset" href="/song/{song.slug}">reset</a>' if semitones else ""
-        )
+        reset = f'<a class="reset" href="{url.format(t=0)}">reset</a>' if semitones else ""
         return (
             '<div class="tr"><span>Transpose</span>'
-            f'<a href="/song/{song.slug}?t={down}" aria-label="Down a semitone">&minus;</a>'
+            f'<a href="{url.format(t=down)}" aria-label="Down a semitone">&minus;</a>'
             f"<b>{showing}</b>"
-            f'<a href="/song/{song.slug}?t={up}" aria-label="Up a semitone">+</a>'
+            f'<a href="{url.format(t=up)}" aria-label="Up a semitone">+</a>'
             f"{reset}</div>"
         )
 
@@ -142,11 +165,6 @@ class HtmlRenderer:
         else:
             right = ""
         return f'<nav class="wrap">{left}{right}</nav>'
-
-    def _controls(self, song: Song, saved: bool, semitones: int) -> str:
-        # Only saved songs: the transposer works by reloading the page, and on a
-        # preview that would mean re-fetching the whole page from UG per click.
-        return self._transposer(song, semitones) if saved else ""
 
     def _header(self, song: Song, semitones: int = 0) -> str:
         parts = [f"<h1>{html.escape(song.title)}</h1>"]
@@ -250,12 +268,43 @@ class HtmlRenderer:
             )
         return f"<ul>{''.join(rows)}</ul>"
 
-    def _body(self, song: Song, semitones: int = 0) -> str:
+    def _body(self, song: Song, semitones: int = 0) -> tuple[str, str]:
+        """The sheet, plus the diagram definitions it refers to."""
         transposer = Transposer.for_song(song.key, song.body, semitones)
+        diagrams = Diagrams()
         rows = []
         for line in song.lines:
             if line.is_chords:
-                rows.append(f'<span class="c">{html.escape(transposer.line(line.text))}</span>')
+                shifted = transposer.line(line.text)
+                rows.append(f'<span class="c">{self._chords(shifted, diagrams)}</span>')
             else:
                 rows.append(html.escape(line.text))
-        return "\n".join(rows)
+        return "\n".join(rows), diagrams.defs()
+
+    def _chords(self, line: str, diagrams: Diagrams) -> str:
+        """Wrap each chord so it can show its shape, leaving columns untouched.
+
+        The spans add no characters, and the popup is absolutely positioned, so
+        the alignment inside <pre> is exactly as it was.
+        """
+        out = []
+        cursor = 0
+        for match in re.finditer(r"\S+", line):
+            out.append(html.escape(line[cursor : match.start()]))
+            token = match.group()
+            ref = diagrams.add(token)
+            if ref is None:
+                out.append(html.escape(token))
+            else:
+                # tabindex makes it work on touch, where there is no hover.
+                # No caption inside the popup: it would be a second copy of the
+                # chord name in the <pre>, so copying the sheet would paste
+                # every chord twice.
+                out.append(
+                    f'<span class="ch" tabindex="0">{html.escape(token)}'
+                    f'<span class="pop"><svg viewBox="0 0 104 120"><use href="#{ref}"/></svg>'
+                    f"</span></span>"
+                )
+            cursor = match.end()
+        out.append(html.escape(line[cursor:]))
+        return "".join(out)

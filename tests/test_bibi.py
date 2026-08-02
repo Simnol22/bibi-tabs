@@ -174,6 +174,102 @@ class TestTransposingALine:
         assert flat_song.flats is True
 
 
+class TestFingerings:
+    def test_finds_the_open_shape_for_a_plain_triad(self):
+        from bibi.fingering import shapes
+
+        found = shapes("C")
+        assert len(found) > 1  # alternate voicings exist
+        assert found[0].frets == (-1, 3, 2, 0, 1, 0)
+        assert found[0].base_fret == 1
+
+    @pytest.mark.parametrize(
+        "token", ["Am", "Cm7", "G7", "Fmaj7", "Dsus4", "Eadd9", "Bdim", "Caug", "A7sus4"]
+    )
+    def test_finds_the_usual_shapes(self, token):
+        from bibi.fingering import shapes
+
+        assert shapes(token), token
+
+    def test_reads_a_barre_as_a_barre(self):
+        from bibi.fingering import shapes
+
+        assert shapes("F")[0].barres
+
+    def test_enharmonic_roots_are_the_same_chord(self):
+        from bibi.fingering import shapes
+
+        assert shapes("Db") == shapes("C#")
+        assert shapes("D#m") == shapes("Ebm")
+
+    def test_accepts_the_quality_spellings_the_parser_allows(self):
+        from bibi.fingering import shapes
+
+        assert shapes("C-7") == shapes("Cm7")
+        assert shapes("C+") == shapes("Caug")
+
+    def test_falls_back_to_the_base_chord_for_an_unknown_bass(self):
+        from bibi.fingering import shapes
+
+        # Better the F#m7b5 shape than an empty box.
+        assert shapes("F#m7b5/A") == shapes("F#m7b5")
+
+    @pytest.mark.parametrize("token", ["N.C.", "Chorus", "", "Cmaj7b13"])
+    def test_returns_nothing_rather_than_guessing(self, token):
+        from bibi.fingering import shapes
+
+        assert shapes(token) == ()
+
+    def test_every_root_has_a_major_and_a_minor(self):
+        from bibi.fingering import shapes
+
+        for root in ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"]:
+            assert shapes(root), root
+            assert shapes(f"{root}m"), f"{root}m"
+
+
+class TestDiagramsOnThePage:
+    def _page(self, body, **kw):
+        return HtmlRenderer().render(Song(title="x", body=body, **kw))
+
+    def test_each_chord_becomes_a_hover_target(self):
+        page = self._page("C   G\naaaa bbbb")
+        assert page.count('class="ch"') == 2
+
+    def test_a_chord_is_reachable_without_a_mouse(self):
+        # Hover alone would leave touch and keyboard users with nothing.
+        assert 'tabindex="0"' in self._page("C\naaaa")
+
+    def test_a_distinct_chord_is_drawn_once_however_often_it_appears(self):
+        page = self._page("C   C   C\naaaa\nC   G\nbbbb")
+        assert page.count("<symbol ") == 2  # C and G, not five copies
+        assert page.count("<use ") == 5
+
+    def test_a_chord_with_no_known_shape_is_left_as_plain_text(self):
+        page = self._page("Cmaj7b13 x4\naaaa")
+        assert "Cmaj7b13" in page
+        assert 'class="ch"' not in page
+
+    def test_columns_survive_the_markup(self):
+        # The spans add no characters, so the sheet still lines up.
+        page = self._page("C    G\naaaa bbbb")
+        line = re.search(r'<span class="c">(.*?)</span>\n', page, re.S).group(1)
+        assert re.sub(r"<[^>]+>", "", line) == "C    G"
+
+    def test_diagrams_follow_the_transposition(self):
+        from bibi.diagram import Diagrams
+        from bibi.fingering import shapes
+
+        page = HtmlRenderer().render(Song(title="x", key="C", body="C\naaaa"), semitones=2)
+        # Shifted to D, so the D shape is what gets drawn.
+        expected = Diagrams()
+        expected.add("D")
+        assert expected.defs() in page
+
+    def test_no_definitions_when_nothing_is_recognised(self):
+        assert "<symbol" not in self._page("aaaa bbbb\ncccc")
+
+
 class TestSong:
     def test_slug_is_filename_safe(self):
         assert Song(title="Hey Jude!", artist="The Beatles").slug == "the-beatles-hey-jude"
@@ -347,7 +443,9 @@ class TestServer:
     def test_song_page_renders_a_saved_song(self, tmp_path):
         server = self._server(tmp_path)
         server.library.save(Song(title="Placeholder", body="C   G\naaaa bbbb"))
-        assert '<span class="c">C   G</span>' in server.song_page("placeholder")
+        page = server.song_page("placeholder")
+        assert 'class="c"' in page and ">C<" in page
+        assert "aaaa bbbb" in page
 
     def test_song_page_is_none_when_missing(self, tmp_path):
         assert self._server(tmp_path).song_page("nope") is None
@@ -580,7 +678,7 @@ class TestLibrary:
 class TestHtmlRenderer:
     def test_marks_chord_lines_and_leaves_lyrics_plain(self):
         page = HtmlRenderer().render(Song(title="x", body="C   G\naaaa bbbb"))
-        assert '<span class="c">C   G</span>' in page
+        assert 'class="c"' in page
         assert "aaaa bbbb" in page
 
     def test_escapes_html_in_the_sheet(self):

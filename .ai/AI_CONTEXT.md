@@ -30,6 +30,8 @@ UltimateGuitar ─→ Song
 
 bibi/song.py             Song, Line, SearchResult
 bibi/chords.py           Chord, Transposer, spelling. Pure, no I/O.
+bibi/fingering.py        Shape lookup, chords-db (MIT) in data/
+bibi/diagram.py          Diagrams — SVG <symbol> per distinct chord
 bibi/ultimate_guitar.py  UltimateGuitar — the only file that knows about UG
 bibi/library.py          Library — text files in a folder
 bibi/render.py           HtmlRenderer — song page and landing page
@@ -64,8 +66,9 @@ bibi/cli.py              App — wires them together
 
 ## Negative constraints — do not
 
-- Do not add capo shifting, chord diagrams, sync, accounts, a web framework, or
-  phone support. All were deliberately cut. Transposition arrived on request.
+- Do not add capo shifting, sync, accounts, a web framework, phone support, or
+  a second site adapter. All deliberately cut. Transposition and diagrams
+  arrived on request.
 - Do not persist a transposition. Base 0 is the only state a song has.
 - Do not expose the server beyond 127.0.0.1, and do not fetch a host the source
   does not own.
@@ -90,5 +93,9 @@ bibi/cli.py              App — wires them together
 - Slugs fold accents (`Drôle` → `drole`); dropping them gives `dr-le`.
 - Enharmonic spelling comes from the target key on the circle of fifths, not a
   fixed table. Stops at twelve practical names: Gb major prints `B`, not `Cb`.
-- The transposer only appears on saved songs. On a preview it would re-fetch
-  the whole UG page on every click.
+- Markup inside `<pre>` must add no characters, or columns break and copying
+  the sheet pastes chords twice. The popup is absolutely positioned and empty
+  of text for exactly this reason.
+- `<pre>` must not have an overflow container -- it clips the diagram popups.
+- Diagrams are one `<symbol>` per distinct chord plus `<use>` refs; inlining
+  each occurrence would quadruple the page.

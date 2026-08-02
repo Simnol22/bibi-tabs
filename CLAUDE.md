@@ -45,7 +45,8 @@ bibi <ultimate-guitar-url>
    Never default them inside the repo -- they are copyrighted, and a repo either
    commits them or ignores them.
 7. **OOP, small classes.** One class, one job: `Song`, `Chord`, `Transposer`,
-   `UltimateGuitar`, `Library`, `HtmlRenderer`, `Server`, `App`.
+   `Shape`, `Diagrams`, `UltimateGuitar`, `Library`, `HtmlRenderer`, `Config`,
+   `Server`, `App`.
 8. **The server stays local and unprivileged.** Bind `127.0.0.1` only. It
    fetches on the user's behalf, so validate the host properly before every
    request -- any page in the browser can aim a GET at localhost.
@@ -68,6 +69,11 @@ bibi <ultimate-guitar-url>
   fifths**, never a fixed sharp/flat table -- otherwise transposed sheets read
   `Gb` where `F#` belongs. It stops at the twelve practical names: Gb major
   prints `B`, not the theoretically correct `Cb`. Deliberate, and tested.
+- **Markup inside `<pre>` must add no characters.** Chords are wrapped in spans
+  for the diagram popups; the popup is absolutely positioned and carries no
+  text, or it would both break the columns and paste twice when copied.
+- **`<pre>` must not have an overflow container** -- it would clip the popups.
+  Long lines scroll the page instead.
 - **The chord-line test is a heuristic** (≥80% of tokens parse as chords). It
   only picks colour. Do not let anything load-bearing depend on it.
 - **Pro tabs and tab-type pages have no `wiki_tab.content`** and raise

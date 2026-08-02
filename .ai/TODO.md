@@ -66,14 +66,23 @@ in flight. Next step is Simon using it on real songs and reporting what's wrong.
 - [x] `?t=` clamped to ±11 and non-numeric input ignored
 - [x] Verified on a real song: columns held at 0/5/9/13 across -1, +1, +2
 
-- [ ] Transposition on the preview page too? Left out because each click would
-      re-fetch the UG page. Only worth it if Simon actually wants it there.
+## V1.5 — diagrams, and transposing previews, done
+
+- [x] Transposer now on preview pages too; the last 8 fetches are cached so
+      clicking +/- does not re-hit Ultimate Guitar
+- [x] `bibi/fingering.py` + `data/guitar.json` — chords-db (MIT), 256 KB,
+      restored from `8ed0bb1` where its licence was already verified
+- [x] `bibi/diagram.py` — SVG `<symbol>` per distinct chord, `<use>` per occurrence
+- [x] Hover, tap or tab a chord to see its shape. CSS `:hover` + `:focus`, no JS
+- [x] Popup carries no text, so columns hold and copying does not duplicate chords
+- [x] `<pre>` overflow removed — it clipped the popups
+- [x] Diagrams follow the transposition
+- [x] Verified on a real song: 154 popups over 5 shapes, 35 KB page, columns intact
 
 ## Possible, only if actually missed
 
 Nothing here is planned. Listed so the reasoning isn't relitigated each time.
 
-- [ ] Chord diagrams — chords-db (MIT) was already vetted, see `8ed0bb1`
 - [ ] A second site adapter — `UltimateGuitar` already has `matches()`, so the
       shape is there; do not add an abstract base class for one implementation
 - [ ] `bibi --edit <song>` to open the text file in `$EDITOR`

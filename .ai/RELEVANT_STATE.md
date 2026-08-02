@@ -2,7 +2,7 @@
 
 ## Current State
 
-**V1.4 works.** `bibi` opens a local page: search box, saved songs underneath.
+**V1.5 works.** `bibi` opens a local page: search box, saved songs underneath.
 Search UG, open a result to read it, press **Save** to keep it, `×` to remove
 it. Opening a song no longer saves it.
 
@@ -11,13 +11,33 @@ with the library still empty, save wrote the file and redirected to the sheet,
 re-viewing showed "Saved" with no button, delete emptied the library.
 
 There is also a Settings page (the song folder is configurable, songs move with
-it) and a transposer on saved song pages.
+it), a transposer on every song page, and chord diagrams on hover or tap.
 
-100 tests, no network. conda env `bibi-tabs` (python 3.11), zero dependencies.
+126 tests, no network. conda env `bibi-tabs` (python 3.11), zero dependencies.
 
 ## In flight
 
 Nothing.
+
+## Decisions from diagrams (2026-08-02)
+
+- **chords-db restored from git rather than re-downloaded.** Its licence (MIT,
+  © 2016 David Rubert) was already verified at `8ed0bb1`, and the flattened,
+  midi-stripped 256 KB file was still in history.
+- **One `<symbol>` per distinct chord, `<use>` per occurrence.** Wonderwall has
+  154 chord popups over 5 shapes; inlining each would have made a 150 KB page
+  instead of 35 KB.
+- **The popup carries no caption.** A caption would be a second copy of the
+  chord name inside the `<pre>`, so copying the sheet would paste every chord
+  twice. Caught by the column test, not by eye.
+- **`<pre>` lost its overflow container** because it clipped the popups. Long
+  lines now scroll the page, which is what a monospace sheet wants anyway.
+- **CSS `:hover` + `:focus`, no JavaScript.** `tabindex` makes it reachable by
+  touch and keyboard, where hover does not exist.
+- **Preview pages can transpose now**, backed by an 8-song in-memory cache.
+  Without it every +/- click would re-fetch the whole UG page. This reverses
+  the earlier "stateless preview" decision, and the cache is bounded so it
+  cannot grow with browsing.
 
 ## Decisions from transposition (2026-08-02)
 
@@ -130,3 +150,5 @@ Re-check this before debugging anything UG-related; it is the part that rots.
 - Search is by title only; there is no artist filter.
 - Only Ultimate Guitar.
 - The transposer reloads the page, so it loses scroll position on a long song.
+- Only the first (most common) voicing is shown; alternates are in the data.
+- A chord the dataset lacks simply gets no popup, silently.

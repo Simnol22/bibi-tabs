@@ -23,6 +23,8 @@ from .song import Song
 from .ultimate_guitar import NotAChordPage, UltimateGuitar
 
 DEFAULT_PORT = 8777
+#: How many fetched songs to keep, so transposing a preview costs nothing.
+RECENT_LIMIT = 8
 
 
 def _semitones(raw: str) -> int:
@@ -31,6 +33,10 @@ def _semitones(raw: str) -> int:
         return int(raw)
     except ValueError:
         return 0
+
+
+def _clamp(semitones: int) -> int:
+    return max(-MAX_TRANSPOSE, min(MAX_TRANSPOSE, semitones))
 
 
 class Server:
@@ -47,6 +53,7 @@ class Server:
         self.source = source or UltimateGuitar()
         self.renderer = renderer or HtmlRenderer()
         self.port = port
+        self._recent: dict[str, Song] = {}
 
     # --- pages -----------------------------------------------------------
 
@@ -66,21 +73,26 @@ class Server:
         path = self.library.path_for_slug(slug)
         if path is None:
             return None
-        shift = max(-MAX_TRANSPOSE, min(MAX_TRANSPOSE, semitones))
         return self.renderer.render(
-            self.library.load(path), home="/", saved=True, semitones=shift
+            self.library.load(path),
+            home="/",
+            saved=True,
+            semitones=_clamp(semitones),
+            transpose_url=f"/song/{urllib.parse.quote(slug)}?t={{t}}",
         )
 
-    def view_page(self, url: str) -> str:
-        """Read a song without keeping it. Opening is not the same as wanting.
-
-        Deliberately stateless -- saving fetches again rather than holding the
-        song in memory. One extra request, no cache to go stale.
-        """
+    def view_page(self, url: str, semitones: int = 0) -> str:
+        """Read a song without keeping it. Opening is not the same as wanting."""
         song = self._fetch(url)
         already = self.library.path_for_slug(song.slug) is not None
+        quoted = urllib.parse.quote(url, safe="")
         return self.renderer.render(
-            song, home="/", save_url=None if already else url, saved=already
+            song,
+            home="/",
+            save_url=None if already else url,
+            saved=already,
+            semitones=_clamp(semitones),
+            transpose_url=f"/view?url={quoted}&t={{t}}",
         )
 
     def save(self, url: str) -> str:
@@ -115,10 +127,20 @@ class Server:
 
         The host is checked first: these endpoints live on localhost, so any
         page open in the browser can aim one somewhere of its choosing.
+
+        The last few songs are kept so that transposing a preview -- which
+        reloads the page on every click -- does not hammer Ultimate Guitar.
         """
         if not self.source.matches(url):
             raise NotAChordPage("not an Ultimate Guitar url")
-        return self.source.fetch(url)
+        if url in self._recent:
+            return self._recent[url]
+
+        song = self.source.fetch(url)
+        self._recent[url] = song
+        while len(self._recent) > RECENT_LIMIT:
+            self._recent.pop(next(iter(self._recent)))
+        return song
 
     def _saved(self) -> list[Song]:
         return [self.library.load(path) for path in self.library.paths()]
@@ -154,7 +176,13 @@ class _Handler(BaseHTTPRequestHandler):
         elif parsed.path == "/search":
             self._html(app.search_page(query.get("q", [""])[0]))
         elif parsed.path == "/view":
-            self._fetching(lambda: self._html(app.view_page(query.get("url", [""])[0])))
+            self._fetching(
+                lambda: self._html(
+                    app.view_page(
+                        query.get("url", [""])[0], _semitones(query.get("t", ["0"])[0])
+                    )
+                )
+            )
         elif parsed.path == "/settings":
             self._html(app.settings_page())
         elif parsed.path.startswith("/song/"):
