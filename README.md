@@ -84,7 +84,10 @@ prints `B` where strict theory wants `Cb`.
 
 **Hover or tap a chord to see its shape.** Diagrams come from
 [chords-db](https://github.com/tombatossals/chords-db) (MIT, © 2016 David
-Rubert), bundled at 256 KB so they work offline. Each distinct chord is drawn
+Rubert), bundled at 256 KB so they work offline. A barre is one finger doing one
+thing, so it gets one number in the left margin rather than the same digit
+repeated across every string it covers; the base fret stays in the right margin
+so the two can't be confused. Each distinct chord is drawn
 once as an SVG `<symbol>` and referenced with `<use>` — a sheet with 154 chord
 popups over 5 shapes stays a 35 KB page. Shown with CSS `:hover` and `:focus`,
 so there is no JavaScript and it still works on touch and by keyboard.
@@ -104,7 +107,7 @@ service; this is a personal tool and that was a deliberate call.
 pytest
 ```
 
-126 tests, no network — the UG page and search parsers are exercised against
+134 tests, no network — the UG page and search parsers are exercised against
 synthetic pages, and the server's page building is tested without sockets.
 
 ## Where songs live

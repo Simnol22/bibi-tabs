@@ -2,7 +2,7 @@
 
 ## Current State
 
-**V1.5 works.** `bibi` opens a local page: search box, saved songs underneath.
+**V1.6 works.** `bibi` opens a local page: search box, saved songs underneath.
 Search UG, open a result to read it, press **Save** to keep it, `×` to remove
 it. Opening a song no longer saves it.
 
@@ -13,11 +13,26 @@ re-viewing showed "Saved" with no button, delete emptied the library.
 There is also a Settings page (the song folder is configurable, songs move with
 it), a transposer on every song page, and chord diagrams on hover or tap.
 
-126 tests, no network. conda env `bibi-tabs` (python 3.11), zero dependencies.
+134 tests, no network. conda env `bibi-tabs` (python 3.11), zero dependencies.
 
 ## In flight
 
 Nothing.
+
+## Decisions from barre labelling (2026-08-02)
+
+- **A barre gets one number, in the left margin.** Repeating the finger number
+  on every string it covers was noise -- Simon's call, and right.
+- **The barre finger is read from the data, not assumed.** 2048 of 3283 shapes
+  have a barre, and they use fingers 1, 2, 3 *and* 4, so a hardcoded "1" would
+  be wrong on real chords (C6 barres with 3).
+- **Left margin for the barre finger, right for the base fret**, so the two
+  numbers can never be mistaken for each other. Padding went 14 -> 18 to fit.
+- **The diagram box is now fixed.** The dataset never exceeds four frets, so
+  height is constant -- which also fixed a latent mismatch where the outer
+  `<svg viewBox>` said 104x120 while the symbol computed its own size.
+- **`fingers` sometimes holds `-1` rather than `0`** for a muted string. Found
+  in F's second voicing; truthiness would have printed "-1" on the diagram.
 
 ## Decisions from diagrams (2026-08-02)
 
@@ -151,4 +166,6 @@ Re-check this before debugging anything UG-related; it is the part that rots.
 - Only Ultimate Guitar.
 - The transposer reloads the page, so it loses scroll position on a long song.
 - Only the first (most common) voicing is shown; alternates are in the data.
+- A barre is drawn across its full span even where a higher-fretted finger sits
+  inside it, which is how printed charts do it, but it can look odd.
 - A chord the dataset lacks simply gets no popup, silently.

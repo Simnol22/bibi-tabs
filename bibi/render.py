@@ -12,7 +12,7 @@ import urllib.parse
 from pathlib import Path  # noqa: TC003 - used in signatures at runtime
 
 from .chords import MAX_TRANSPOSE, Transposer, transpose_key
-from .diagram import Diagrams
+from .diagram import HEIGHT, WIDTH, Diagrams
 from .song import SearchResult, Song
 
 _CSS = """
@@ -89,7 +89,7 @@ nav a { text-decoration:none; }
        padding:.5rem .6rem .35rem; box-shadow:0 6px 22px rgb(0 0 0 / .18);
        color:var(--fg); }
 .ch:hover .pop, .ch:focus .pop, .ch:focus-within .pop { display:block; }
-.pop svg { display:block; width:104px; height:120px; }
+.pop svg { display:block; width:110px; height:auto; }
 @media print { .pop { display:none !important } }
 """
 
@@ -302,7 +302,8 @@ class HtmlRenderer:
                 # every chord twice.
                 out.append(
                     f'<span class="ch" tabindex="0">{html.escape(token)}'
-                    f'<span class="pop"><svg viewBox="0 0 104 120"><use href="#{ref}"/></svg>'
+                    f'<span class="pop"><svg viewBox="0 0 {WIDTH} {HEIGHT}">'
+                    f'<use href="#{ref}"/></svg>'
                     f"</span></span>"
                 )
             cursor = match.end()

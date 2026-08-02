@@ -228,6 +228,69 @@ class TestFingerings:
             assert shapes(f"{root}m"), f"{root}m"
 
 
+class TestBarreDiagrams:
+    """A barre is one finger doing one thing, so it gets one number."""
+
+    def _svg(self, token, voicing=0):
+        from bibi.diagram import symbol
+        from bibi.fingering import shapes
+
+        return symbol(shapes(token)[voicing], 0)
+
+    def _dot_numbers(self, svg):
+        return re.findall(r'fill="var\(--bg\)">(\d)<', svg)
+
+    def _margin_numbers(self, svg):
+        return re.findall(r'text-anchor="end" fill="currentColor">(\d)<', svg)
+
+    def test_barred_strings_carry_no_number_of_their_own(self):
+        # F is barred at fret 1 across three strings; that used to print "1"
+        # three times over.
+        svg = self._svg("F")
+        assert self._dot_numbers(svg) == ["3", "4", "2"]  # only the free fingers
+        assert "1" not in self._dot_numbers(svg)
+
+    def test_the_barre_finger_goes_in_the_margin(self):
+        assert self._margin_numbers(self._svg("F")) == ["1"]
+        assert self._margin_numbers(self._svg("Bm")) == ["1"]
+
+    def test_the_margin_number_is_not_always_one(self):
+        # This C6 shape barres with the third finger. A hardcoded "1" would lie.
+        assert self._margin_numbers(self._svg("C6", voicing=1)) == ["3"]
+
+    def test_a_negative_finger_is_not_printed_as_a_number(self):
+        # Some rows use -1 rather than 0 for "no finger" on a muted string.
+        assert "-1" not in self._svg("F", voicing=1)
+
+    def test_barred_positions_draw_no_separate_dot(self):
+        from bibi.fingering import shapes
+
+        shape = shapes("F")[0]
+        fretted = sum(1 for f in shape.frets if f > 0)
+        barred = sum(1 for f in shape.frets if f in shape.barres)
+        assert len(re.findall(r"<circle", self._svg("F"))) == fretted - barred
+
+    def test_an_open_chord_keeps_its_numbers_in_the_dots(self):
+        svg = self._svg("Em")
+        assert self._dot_numbers(svg) == ["2", "3"]
+        assert self._margin_numbers(svg) == []
+
+    def test_the_base_fret_stays_on_the_other_side(self):
+        # Right margin, so it can never be mistaken for the barre finger.
+        svg = self._svg("Bb", voicing=1)  # this one starts at the third fret
+        assert re.search(r'opacity="\.7">3</text>', svg)
+        assert self._margin_numbers(svg) == ["1"]
+
+    def test_every_shape_fits_the_fixed_box(self):
+        from bibi.diagram import HEIGHT, WIDTH
+        from bibi.fingering import shapes
+
+        for token in ["C", "F", "Bm", "C6", "F#m7b5", "Ab", "D#m"]:
+            for shape in shapes(token):
+                assert max(shape.frets) <= 4, token
+        assert (WIDTH, HEIGHT) == (111, 102)
+
+
 class TestDiagramsOnThePage:
     def _page(self, body, **kw):
         return HtmlRenderer().render(Song(title="x", body=body, **kw))

@@ -79,6 +79,15 @@ in flight. Next step is Simon using it on real songs and reporting what's wrong.
 - [x] Diagrams follow the transposition
 - [x] Verified on a real song: 154 popups over 5 shapes, 35 KB page, columns intact
 
+## V1.6 — barre labelling, done
+
+- [x] Barred strings no longer each carry the same finger number
+- [x] The barre finger goes once in the left margin; base fret stays right
+- [x] Barre finger read from the data, since it is not always 1 (2, 3, 4 occur)
+- [x] Fixed diagram box (dataset never exceeds 4 frets), so the outer `<svg>`
+      viewBox finally matches the symbol's
+- [x] `fingers` values of `-1` no longer print as a number
+
 ## Possible, only if actually missed
 
 Nothing here is planned. Listed so the reasoning isn't relitigated each time.
