@@ -104,6 +104,14 @@ in flight. Next step is Simon using it on real songs and reporting what's wrong.
       `bibi` command searched one site while the tests passed. `TestCliWiring`
       now pins the command's own wiring.
 
+## V1.8 — the fret marker, done
+
+- [x] The number beside a barre is the **fret**, not the finger. F#m reads 2fr.
+- [x] It carries "fr", so it cannot be read as a finger number again
+- [x] One marker per diagram instead of two on opposite sides: barre row, else
+      the top row when the grid starts up the neck, else nothing
+- [x] Marker counts from base_fret, so grid-from-5 with a barre on row 2 is 6fr
+
 ## Possible, only if actually missed
 
 Nothing here is planned. Listed so the reasoning isn't relitigated each time.

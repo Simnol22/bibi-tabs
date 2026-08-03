@@ -240,23 +240,40 @@ class TestBarreDiagrams:
     def _dot_numbers(self, svg):
         return re.findall(r'fill="var\(--bg\)">(\d)<', svg)
 
-    def _margin_numbers(self, svg):
-        return re.findall(r'text-anchor="end" fill="currentColor">(\d)<', svg)
+    def _marker(self, svg):
+        return re.findall(r'text-anchor="end"[^>]*>(\d+)fr<', svg)
 
     def test_barred_strings_carry_no_number_of_their_own(self):
-        # F is barred at fret 1 across three strings; that used to print "1"
-        # three times over.
+        # F is barred across three strings; that used to print "1" three times.
         svg = self._svg("F")
         assert self._dot_numbers(svg) == ["3", "4", "2"]  # only the free fingers
         assert "1" not in self._dot_numbers(svg)
 
-    def test_the_barre_finger_goes_in_the_margin(self):
-        assert self._margin_numbers(self._svg("F")) == ["1"]
-        assert self._margin_numbers(self._svg("Bm")) == ["1"]
+    def test_the_marker_gives_the_fret_the_barre_sits_on(self):
+        # F#m barres the 2nd fret. A bare "1" there read as a fret and was the
+        # finger, which is exactly the confusion "fr" removes.
+        assert self._marker(self._svg("F#m")) == ["2"]
+        assert self._marker(self._svg("Bm")) == ["2"]
+        assert self._marker(self._svg("F")) == ["1"]
 
-    def test_the_margin_number_is_not_always_one(self):
-        # This C6 shape barres with the third finger. A hardcoded "1" would lie.
-        assert self._margin_numbers(self._svg("C6", voicing=1)) == ["3"]
+    def test_the_marker_counts_from_where_the_diagram_starts(self):
+        from bibi.diagram import symbol
+        from bibi.fingering import Shape
+
+        # Grid begins at fret 5, barre on its second row: that is fret 6.
+        shape = Shape(frets=(2, 2, 2, 2, 2, 2), fingers=(1,) * 6, base_fret=5, barres=(2,))
+        assert self._marker(symbol(shape, 0)) == ["6"]
+
+    def test_a_shape_up_the_neck_is_labelled_even_without_a_barre(self):
+        from bibi.diagram import symbol
+        from bibi.fingering import Shape
+
+        shape = Shape(frets=(-1, 1, 3, 3, 3, -1), fingers=(0, 1, 2, 3, 4, 0), base_fret=7)
+        assert self._marker(symbol(shape, 0)) == ["7"]
+
+    def test_an_open_shape_at_the_nut_needs_no_marker(self):
+        assert self._marker(self._svg("Em")) == []
+        assert self._marker(self._svg("C")) == []
 
     def test_a_negative_finger_is_not_printed_as_a_number(self):
         # Some rows use -1 rather than 0 for "no finger" on a muted string.
@@ -273,13 +290,13 @@ class TestBarreDiagrams:
     def test_an_open_chord_keeps_its_numbers_in_the_dots(self):
         svg = self._svg("Em")
         assert self._dot_numbers(svg) == ["2", "3"]
-        assert self._margin_numbers(svg) == []
+        assert self._marker(svg) == []
 
-    def test_the_base_fret_stays_on_the_other_side(self):
-        # Right margin, so it can never be mistaken for the barre finger.
-        svg = self._svg("Bb", voicing=1)  # this one starts at the third fret
-        assert re.search(r'opacity="\.7">3</text>', svg)
-        assert self._margin_numbers(svg) == ["1"]
+    def test_there_is_only_ever_one_fret_marker(self):
+        # It used to be two numbers on opposite sides -- barre finger left,
+        # base fret right -- which is what made either one ambiguous.
+        for token in ["F", "F#m", "Bm", "C", "Em", "Bb"]:
+            assert len(self._marker(self._svg(token))) <= 1, token
 
     def test_every_shape_fits_the_fixed_box(self):
         from bibi.diagram import HEIGHT, WIDTH
@@ -288,7 +305,7 @@ class TestBarreDiagrams:
         for token in ["C", "F", "Bm", "C6", "F#m7b5", "Ab", "D#m"]:
             for shape in shapes(token):
                 assert max(shape.frets) <= 4, token
-        assert (WIDTH, HEIGHT) == (111, 102)
+        assert (WIDTH, HEIGHT) == (113, 102)
 
 
 class TestDiagramsOnThePage:

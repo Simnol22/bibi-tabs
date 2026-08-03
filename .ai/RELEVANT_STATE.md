@@ -13,11 +13,27 @@ re-viewing showed "Saved" with no button, delete emptied the library.
 There is also a Settings page (the song folder is configurable, songs move with
 it), a transposer on every song page, and chord diagrams on hover or tap.
 
-163 tests, no network. conda env `bibi-tabs` (python 3.11), zero dependencies.
+165 tests, no network. conda env `bibi-tabs` (python 3.11), zero dependencies.
 
 ## In flight
 
 Nothing.
+
+## The fret marker (2026-08-02)
+
+Simon asked for "which number should it be barred at" and I read it as the
+finger. He meant the fret. F#m barres the 2nd fret with the first finger, so the
+diagram said "1" where he expected "2" -- and he was right, because a bare
+number beside a barre reads as a position, not a finger.
+
+Now: one marker, left margin, `2fr`. The suffix is the actual fix -- it removes
+the ambiguity that caused the misread in the first place. It labels the barre's
+row, or the top row when the grid starts up the neck, or nothing for an open
+shape at the nut. Two numbers on opposite sides was what made either one
+ambiguous, so there is only ever one.
+
+The finger number for a barre is gone entirely. Accepted: it is 1 on the large
+majority of shapes, and the fret is the thing you actually need.
 
 ## Bug worth remembering (2026-08-02)
 

@@ -108,6 +108,7 @@ bibi/cli.py              App — wires them together
 - `<pre>` must not have an overflow container -- it clips the diagram popups.
 - Diagrams are one `<symbol>` per distinct chord plus `<use>` refs; inlining
   each occurrence would quadruple the page.
-- A barre gets one number in the left margin, base fret in the right. The barre
-  finger is not always 1 (the data uses 2, 3, 4), so never hardcode it.
+- One fret marker per diagram, left margin, `2fr` format. Barre row if there is
+  a barre, else the top row when base_fret > 1, else nothing. It is the fret,
+  never the finger.
 - Some `fingers` rows use `-1` for "no finger". Test `> 0`, not truthiness.

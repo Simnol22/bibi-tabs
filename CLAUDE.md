@@ -76,9 +76,10 @@ bibi <ultimate-guitar-url>
   text, or it would both break the columns and paste twice when copied.
 - **`<pre>` must not have an overflow container** -- it would clip the popups.
   Long lines scroll the page instead.
-- **A barre gets one number in the left margin**, not the same digit on every
-  string it covers. It is not always finger 1 -- the dataset uses 2, 3 and 4 --
-  so it cannot be hardcoded. Base fret lives in the right margin.
+- **One fret marker per diagram**, left margin, reading `2fr`. It labels the
+  barre's row when there is a barre, otherwise the top row when the grid starts
+  up the neck. It is the *fret*, not the finger: a bare number beside a barre
+  gets read as a fret, which is why it now carries "fr".
 - **Some `fingers` rows use `-1` for "no finger"** where others use `0`. Test
   `> 0`, or a diagram prints "-1".
 - **The chord-line test is a heuristic** (≥80% of tokens parse as chords). It
