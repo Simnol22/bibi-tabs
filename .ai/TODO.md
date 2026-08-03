@@ -100,6 +100,9 @@ in flight. Next step is Simon using it on real songs and reporting what's wrong.
 - [x] `lay_out` extracted so the transposer and the adapter share one rule
 - [x] Verified end to end: fetched, saved with capo 1 from "Capo I", search
       returned 15 UG + 4 BAC interleaved
+- [x] **Fix:** `cli.App` was still hardcoding `UltimateGuitar()`, so the actual
+      `bibi` command searched one site while the tests passed. `TestCliWiring`
+      now pins the command's own wiring.
 
 ## Possible, only if actually missed
 

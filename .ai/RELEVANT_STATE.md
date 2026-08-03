@@ -13,11 +13,23 @@ re-viewing showed "Saved" with no button, delete emptied the library.
 There is also a Settings page (the song folder is configurable, songs move with
 it), a transposer on every song page, and chord diagrams on hover or tap.
 
-160 tests, no network. conda env `bibi-tabs` (python 3.11), zero dependencies.
+163 tests, no network. conda env `bibi-tabs` (python 3.11), zero dependencies.
 
 ## In flight
 
 Nothing.
+
+## Bug worth remembering (2026-08-02)
+
+**`bibi` searched only Ultimate Guitar for one commit**, while every test
+passed. `cli.App.__init__` built its own `UltimateGuitar()` and handed it to the
+server, so the server's `Sources()` default never applied. Every end-to-end
+check had constructed `Server(...)` directly -- verifying through a path the
+user never takes.
+
+The lesson is in `TestCliWiring`: the command builds its own objects, so it can
+silently disagree with the server's defaults. Verify through `bibi`, not through
+a hand-built `Server`.
 
 ## Decisions from the second source (2026-08-02)
 

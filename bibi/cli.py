@@ -18,13 +18,16 @@ from .library import Library
 from .render import HtmlRenderer
 from .server import DEFAULT_PORT, Server
 from .song import Song
-from .ultimate_guitar import NotAChordPage, UltimateGuitar
+from .sources import Sources
+from .ultimate_guitar import NotAChordPage
 
 
 class App:
     def __init__(self, library: Library | None = None) -> None:
         self.library = library or Library()
-        self.source = UltimateGuitar()
+        # Every site, not just one -- this is the only place the CLI and the
+        # server could disagree about which sources exist.
+        self.source = Sources()
         self.renderer = HtmlRenderer()
 
     def run(self, argv: list[str]) -> int:

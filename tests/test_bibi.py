@@ -908,6 +908,35 @@ class TestSources:
         assert [r.title for r in Sources([Broken(), Fine()]).search("x")] == ["ok"]
 
 
+class TestCliWiring:
+    """The command builds its own objects, so it can silently disagree with the
+    server's defaults. It did: `bibi` searched only Ultimate Guitar while
+    Sources knew about two sites."""
+
+    def test_the_command_searches_every_site(self, tmp_path):
+        from bibi.cli import App
+        from bibi.sources import Sources
+
+        app = App(library=Library(home=tmp_path))
+        assert isinstance(app.source, Sources)
+        assert {s.name for s in app.source.all} == {"Ultimate Guitar", "Boîte à Chansons"}
+
+    def test_the_command_accepts_a_url_from_either_site(self, tmp_path):
+        from bibi.cli import App
+
+        app = App(library=Library(home=tmp_path))
+        assert app.source.matches("https://tabs.ultimate-guitar.com/tab/x")
+        assert app.source.matches("https://www.boiteachansons.net/partitions/a/b")
+
+    def test_the_server_it_starts_uses_the_same_sources(self, tmp_path):
+        from bibi.cli import App
+        from bibi.server import Server
+
+        app = App(library=Library(home=tmp_path))
+        server = Server(app.library, app.source, app.renderer)
+        assert server.source is app.source
+
+
 class TestSourceLabels:
     """Which site a sheet came from, in the three places it matters."""
 
