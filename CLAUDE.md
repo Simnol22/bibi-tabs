@@ -55,7 +55,10 @@ bibi <ultimate-guitar-url>
 9. **Anything that changes state is a POST.** Saving and deleting are forms,
    never links. A GET that deletes a file gets fired by browser prefetch and by
    back-navigation.
-10. **Reading is not keeping.** `/view` renders without saving; only the Save
+10. **Editing is chord lines only, in the stored key.** Lyrics have no field,
+    so nothing submitted can reach them. Unlocking ignores the transposition:
+    saving an edit made against a shifted view would re-key the song.
+11. **Reading is not keeping.** `/view` renders without saving; only the Save
    button writes to the library.
 
 ## Known gotchas

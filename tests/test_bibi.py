@@ -925,6 +925,133 @@ class TestSources:
         assert [r.title for r in Sources([Broken(), Fine()]).search("x")] == ["ok"]
 
 
+class TestEditingChords:
+    """Only chord lines are editable, and blank means gone."""
+
+    def _song(self, body):
+        return Song(title="T", body=body)
+
+    def test_moving_a_chord_is_just_moving_its_column(self):
+        song = self._song("C\naaaa bbbb")
+        assert song.edited({"c0": "     C"}).body == "     C\naaaa bbbb"
+
+    def test_clearing_a_field_removes_the_chord_line(self):
+        song = self._song("C   G\naaaa bbbb\nF\ncccc")
+        assert song.edited({"c0": "   "}).body == "aaaa bbbb\nF\ncccc"
+
+    def test_typing_into_an_empty_field_adds_a_chord_line(self):
+        song = self._song("aaaa bbbb")
+        assert song.edited({"n0": "C    G"}).body == "C    G\naaaa bbbb"
+
+    def test_adding_and_removing_in_one_pass(self):
+        song = self._song("C\naaaa\nbbbb")
+        assert song.edited({"c0": "", "n2": "  G"}).body == "aaaa\n  G\nbbbb"
+
+    def test_lyrics_are_never_touched(self):
+        # There is no field for them, so nothing submitted can reach them.
+        body = "C\naaaa bbbb\n\ncccc   dddd"
+        song = self._song(body)
+        edited = song.edited({"c0": "G", "n3": "F"})
+        assert [line for line in edited.body.split("\n") if not looks_like_chords(line)] == [
+            "aaaa bbbb",
+            "",
+            "cccc   dddd",
+        ]
+
+    def test_blank_lines_and_spacing_survive(self):
+        body = "C\naaaa\n\n\nbbbb"
+        assert self._song(body).edited({}).body == body
+
+    def test_submitting_nothing_changes_nothing(self):
+        body = "C   G\naaaa bbbb"
+        assert self._song(body).edited({}).body == body
+
+    def test_trailing_spaces_are_trimmed_but_leading_ones_are_not(self):
+        # Leading spaces are the chord's position; trailing ones are noise.
+        assert self._song("C\naaaa").edited({"c0": "   C   "}).body == "   C\naaaa"
+
+    def test_the_edit_survives_a_round_trip_to_disk(self, tmp_path):
+        library = Library(home=tmp_path)
+        library.save(self._song("C\naaaa bbbb"))
+        song = library.load(library.paths()[0])
+
+        library.save(song.edited({"c0": "      C"}))
+
+        assert library.load(library.paths()[0]).body == "      C\naaaa bbbb"
+
+
+class TestTheEditScreen:
+    def _page(self, body):
+        return HtmlRenderer().edit(Song(title="T", body=body))
+
+    def test_every_chord_line_gets_a_field(self):
+        page = self._page("C   G\naaaa\nF\nbbbb")
+        assert 'name="c0"' in page and 'name="c2"' in page
+
+    def test_every_lyric_without_chords_gets_an_empty_one(self):
+        page = self._page("aaaa\nbbbb")
+        assert 'name="n0"' in page and 'name="n1"' in page
+
+    def test_a_lyric_that_already_has_chords_gets_no_extra_field(self):
+        page = self._page("C\naaaa")
+        assert 'name="n1"' not in page
+
+    def test_fields_carry_the_line_verbatim_so_columns_hold(self):
+        page = self._page("C     G\naaaa bbbb")
+        assert 'value="C     G"' in page
+
+    def test_fields_are_as_wide_as_the_longest_line(self):
+        # ch units are monospace columns, so the grid lines up with the lyrics.
+        page = self._page("C\naaaaaaaaaa")
+        assert "width:18ch" in page
+
+    def test_it_posts_to_edit_with_the_slug(self):
+        page = self._page("C\naaaa")
+        assert 'action="/edit"' in page and 'name="slug"' in page
+
+    def test_there_is_a_way_out_without_saving(self):
+        assert "Cancel" in self._page("C\naaaa")
+
+    def test_the_transposer_is_absent_while_editing(self):
+        # Editing happens in the stored key; offering to transpose here would
+        # invite saving an edit against a shifted view.
+        assert 'class="tr"' not in self._page("C\naaaa")
+
+
+class TestLockAndUnlock:
+    def _server(self, tmp_path):
+        from bibi.server import Server
+
+        server = Server(library=Library(home=tmp_path))
+        server.library.save(Song(title="T", key="C", body="C   G\naaaa bbbb"))
+        return server
+
+    def test_a_saved_song_offers_the_lock(self, tmp_path):
+        page = self._server(tmp_path).song_page("t")
+        assert "?edit=1" in page
+
+    def test_unlocking_shows_the_editor(self, tmp_path):
+        page = self._server(tmp_path).song_page("t", editing=True)
+        assert 'action="/edit"' in page and 'name="c0"' in page
+
+    def test_unlocking_ignores_the_transposition(self, tmp_path):
+        # The whole trap: editing a view shifted to D must not save D chords.
+        page = self._server(tmp_path).song_page("t", semitones=2, editing=True)
+        assert 'value="C   G"' in page
+        assert "value=\"D   A\"" not in page
+
+    def test_locking_saves_and_reloads_changed(self, tmp_path):
+        server = self._server(tmp_path)
+
+        assert server.edit_song("t", {"c0": "      C"}) == "t"
+
+        assert "      C" in server.library.load(server.library.paths()[0]).body
+        assert 'class="c"' in server.song_page("t")
+
+    def test_editing_a_song_that_is_gone_is_not_a_crash(self, tmp_path):
+        assert self._server(tmp_path).edit_song("absent", {"c0": "C"}) is None
+
+
 class TestCliWiring:
     """The command builds its own objects, so it can silently disagree with the
     server's defaults. It did: `bibi` searched only Ultimate Guitar while

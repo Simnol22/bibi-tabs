@@ -2,7 +2,7 @@
 
 ## Current State
 
-**V1.7 works.** `bibi` opens a local page: search box, saved songs underneath.
+**V1.9 works.** `bibi` opens a local page: search box, saved songs underneath.
 Search UG, open a result to read it, press **Save** to keep it, `×` to remove
 it. Opening a song no longer saves it.
 
@@ -13,11 +13,29 @@ re-viewing showed "Saved" with no button, delete emptied the library.
 There is also a Settings page (the song folder is configurable, songs move with
 it), a transposer on every song page, and chord diagrams on hover or tap.
 
-165 tests, no network. conda env `bibi-tabs` (python 3.11), zero dependencies.
+187 tests, no network. conda env `bibi-tabs` (python 3.11), zero dependencies.
 
 ## In flight
 
 Nothing.
+
+## Editing chords (2026-08-02)
+
+- **Text fields, not drag-and-drop.** Moving a chord needs sub-character
+  precision and there is no JavaScript here; arrow buttons would mean a page
+  reload per column. Each chord line becomes a monospace field in place, with
+  its lyric static beneath -- spaces move, clearing deletes, typing adds. `ch`
+  units make a field's columns line up exactly with the lyric.
+- **Unlocking discards the transposition.** This is the trap the very first
+  architecture warned about: an edit saved against a view shifted to D would
+  write D chords into a song stored in C. Editing is always the stored key.
+- **Lyrics have no field at all**, so nothing submitted can reach them. Scope
+  was chords, and it makes accidental damage unrepresentable.
+- **An empty "add" field only where there is no chord line already.** Emitting
+  one everywhere put a blank row between every chord and its lyric, which broke
+  the pairing the feature exists for. Caught by a test, not by eye.
+- **`keep_blank_values=True` on the form parse.** Without it a cleared field
+  vanishes from the POST, and "delete this chord line" would silently do nothing.
 
 ## The fret marker (2026-08-02)
 

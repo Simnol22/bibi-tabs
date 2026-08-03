@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 # One definition of "what is a chord", and it lives in chords.py.
 from .chords import looks_like_chords
@@ -64,6 +64,29 @@ class Song:
         """A readable header, a blank line, then the sheet exactly as it is."""
         header = "\n".join(f"{name}: {getattr(self, name)}" for name in self._FIELDS)
         return f"{header}\n\n{self.body}"
+
+    def edited(self, chords: dict[str, str]) -> Song:
+        """A copy with its chord lines replaced by edited ones.
+
+        Keys are `c{i}` for the chord line already at index `i`, and `n{i}` for
+        a new chord line to insert above the line at `i`. A blank value removes
+        the line -- that is how a chord is deleted.
+
+        Lyrics are never touched: only chord lines are editable, so a stray
+        keystroke cannot damage the words.
+        """
+        out: list[str] = []
+        for i, line in enumerate(self.body.split("\n")):
+            if looks_like_chords(line):
+                replacement = chords.get(f"c{i}", line).rstrip()
+                if replacement.strip():
+                    out.append(replacement)
+                continue
+            added = chords.get(f"n{i}", "").rstrip()
+            if added.strip():
+                out.append(added)
+            out.append(line)
+        return replace(self, body="\n".join(out))
 
     @classmethod
     def from_text(cls, text: str) -> Song:

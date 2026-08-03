@@ -112,6 +112,21 @@ in flight. Next step is Simon using it on real songs and reporting what's wrong.
       the top row when the grid starts up the neck, else nothing
 - [x] Marker counts from base_fret, so grid-from-5 with a barre on row 2 is 6fr
 
+## V1.9 — lock and edit, done
+
+- [x] Lock icon on a saved song; `?edit=1` unlocks, "Lock and save" writes
+- [x] Chord lines become monospace fields in place, `ch`-width so the grid
+      lines up with the lyric beneath
+- [x] Move with spaces, clear the field to delete, type into an empty one to add
+- [x] Empty field only where there is no chord line already, or every lyric
+      would be pushed a row from its chords
+- [x] `Song.edited()` rebuilds the body; lyrics have no field and are untouched
+- [x] Unlocking discards the transposition -- editing is always the stored key
+- [x] `keep_blank_values=True`, or a cleared field would vanish instead of
+      meaning "delete"
+- [x] Verified over HTTP: moved a chord 4 columns, deleted a line, reloaded,
+      re-read from disk
+
 ## Possible, only if actually missed
 
 Nothing here is planned. Listed so the reasoning isn't relitigated each time.

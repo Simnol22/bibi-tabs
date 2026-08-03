@@ -13,7 +13,7 @@ from pathlib import Path  # noqa: TC003 - used in signatures at runtime
 
 from .chords import MAX_TRANSPOSE, Transposer, transpose_key
 from .diagram import HEIGHT, WIDTH, Diagrams
-from .song import SearchResult, Song
+from .song import SearchResult, Song, looks_like_chords
 
 _CSS = """
 :root { color-scheme: light dark;
@@ -94,6 +94,19 @@ nav a { text-decoration:none; }
 .ch:hover .pop, .ch:focus .pop, .ch:focus-within .pop { display:block; }
 .pop svg { display:block; width:110px; height:auto; }
 @media print { .pop { display:none !important } }
+
+/* editing -- fields share the monospace grid with the lyrics beneath them */
+.lock { font-size:1.2rem; text-decoration:none; }
+.edit { max-width:60rem; margin:0 auto; overflow-x:auto;
+        font-family: ui-monospace, "SF Mono", Menlo, monospace;
+        font-size:15px; line-height:1.5; }
+.edit .lyr { white-space:pre; }
+.chl { display:block; font:inherit; line-height:inherit; padding:0; margin:0;
+       border:0; border-radius:0; background:transparent; color:var(--accent);
+       font-weight:600; caret-color:var(--accent); }
+.chl:hover { background:color-mix(in srgb, var(--accent) 8%, transparent); }
+.chl:focus { outline:0; background:color-mix(in srgb, var(--accent) 14%, transparent); }
+.hint { color:var(--muted); font-size:.85rem; max-width:44rem; }
 """
 
 
@@ -106,6 +119,7 @@ class HtmlRenderer:
         saved: bool = False,
         semitones: int = 0,
         transpose_url: str | None = None,
+        edit_url: str | None = None,
     ) -> str:
         """A song page.
 
@@ -121,10 +135,64 @@ class HtmlRenderer:
             f'<html lang="en"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width, initial-scale=1">'
             f"<title>{html.escape(song.title)}</title><style>{_CSS}</style></head>"
-            f"<body>{self._nav(home, save_url, saved)}"
+            f"<body>{self._nav(home, save_url, saved, edit_url)}"
             f"<header>{self._header(song, semitones)}"
             f"{self._transposer(transpose_url, semitones)}</header>"
             f"<pre>{body}</pre>{defs}</body></html>\n"
+        )
+
+    def edit(self, song: Song) -> str:
+        """The sheet with its chord lines editable, in place.
+
+        Always the stored key: transposing is a display trick, and saving an
+        edit made against a transposed view would silently re-key the song.
+
+        Each chord line becomes a monospace field sitting exactly where it was,
+        with its lyric static underneath. Spaces move a chord, deleting the
+        token removes it, typing adds one -- and every lyric line without
+        chords gets an empty field, so you can add where there was nothing.
+        """
+        lines = song.body.split("\n")
+        # In `ch` units a monospace column is exactly one character, so the
+        # field and the lyric below it share a grid.
+        width = max((len(line) for line in lines), default=40) + 8
+
+        rows = []
+        for i, line in enumerate(lines):
+            if line.strip() == "":
+                rows.append('<div class="lyr">&nbsp;</div>')
+            elif looks_like_chords(line):
+                rows.append(self._chord_field(f"c{i}", line, width))
+            else:
+                # An empty field only where there is no chord line already, or
+                # every lyric would be pushed a row away from its own chords.
+                if i == 0 or not looks_like_chords(lines[i - 1]):
+                    rows.append(self._chord_field(f"n{i}", "", width))
+                rows.append(f'<div class="lyr">{html.escape(line)}</div>')
+
+        return (
+            "<!doctype html>\n"
+            '<html lang="en"><head><meta charset="utf-8">'
+            '<meta name="viewport" content="width=device-width, initial-scale=1">'
+            f"<title>{html.escape(song.title)}</title><style>{_CSS}</style></head>"
+            '<body><form method="post" action="/edit">'
+            f'<input type="hidden" name="slug" value="{html.escape(song.slug)}">'
+            '<nav class="wrap">'
+            f'<a href="/song/{html.escape(song.slug)}">Cancel</a>'
+            "<button>&#128274; Lock and save</button></nav>"
+            f"<header>{self._header(song)}"
+            '<p class="hint">Editing the chords only, in the key the song is '
+            "stored in. Move one with spaces, clear it to delete it, or type "
+            "into an empty line to add one.</p></header>"
+            f'<div class="edit">{"".join(rows)}</div>'
+            "</form></body></html>\n"
+        )
+
+    def _chord_field(self, name: str, value: str, width: int) -> str:
+        return (
+            f'<input class="chl" name="{name}" value="{html.escape(value)}" '
+            f'spellcheck="false" autocapitalize="off" autocomplete="off" '
+            f'style="width:{width}ch">'
         )
 
     def _transposer(self, url: str | None, semitones: int) -> str:
@@ -152,7 +220,13 @@ class HtmlRenderer:
         path.write_text(self.render(song), encoding="utf-8")
         return path
 
-    def _nav(self, home: str | None, save_url: str | None, saved: bool) -> str:
+    def _nav(
+        self,
+        home: str | None,
+        save_url: str | None,
+        saved: bool,
+        edit_url: str | None = None,
+    ) -> str:
         if home is None and save_url is None and not saved:
             return ""
         left = f'<a href="{home}">&larr; Library</a>' if home else "<span></span>"
@@ -162,6 +236,11 @@ class HtmlRenderer:
                 '<form method="post" action="/save">'
                 f'<input type="hidden" name="url" value="{html.escape(save_url)}">'
                 "<button>Save to library</button></form>"
+            )
+        elif edit_url:
+            right = (
+                f'<a class="lock" href="{edit_url}" title="Unlock to edit chords">'
+                "&#128274;</a>"
             )
         elif saved:
             right = '<span class="ok">Saved</span>'

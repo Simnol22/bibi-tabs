@@ -94,6 +94,15 @@ once as an SVG `<symbol>` and referenced with `<use>` — a sheet with 154 chord
 popups over 5 shapes stays a 35 KB page. Shown with CSS `:hover` and `:focus`,
 so there is no JavaScript and it still works on touch and by keyboard.
 
+**Click the lock to edit the chords.** Each chord line becomes a monospace
+field sitting exactly where it was, with its lyric static underneath: spaces
+move a chord, clearing the field deletes the line, and every lyric without
+chords gets an empty field so you can add one. Lock again to save. Lyrics are
+not editable, so a stray keystroke cannot damage the words.
+
+Unlocking always shows the **stored** key, whatever you were transposed to.
+Saving an edit made against a shifted view would silently re-key the song.
+
 **Chord lines are found by counting.** A line is chords when at least 80% of its
 tokens parse as chord symbols. It only decides colour, so a wrong answer is a
 mis-coloured line, never mangled text.

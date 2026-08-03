@@ -67,6 +67,9 @@ bibi/cli.py              App — wires them together
    that deletes gets fired by prefetch and by back-navigation.
 9. **Reading is not keeping.** `/view` renders without saving. Only the Save
    button writes to the library.
+10. **Editing touches chord lines only, in the stored key.** Lyrics have no
+    field. Unlocking discards the transposition, or an edit would re-key the
+    song. Blank field = delete that chord line.
 
 ## Negative constraints — do not
 

@@ -70,17 +70,32 @@ class Server:
             results = []
         return self.renderer.index(self._saved(), query, results)
 
-    def song_page(self, slug: str, semitones: int = 0) -> str | None:
+    def song_page(self, slug: str, semitones: int = 0, editing: bool = False) -> str | None:
         path = self.library.path_for_slug(slug)
         if path is None:
             return None
+        song = self.library.load(path)
+        if editing:
+            # Always the stored key: an edit saved against a transposed view
+            # would silently re-key the song.
+            return self.renderer.edit(song)
+        quoted = urllib.parse.quote(slug)
         return self.renderer.render(
-            self.library.load(path),
+            song,
             home="/",
             saved=True,
             semitones=_clamp(semitones),
-            transpose_url=f"/song/{urllib.parse.quote(slug)}?t={{t}}",
+            transpose_url=f"/song/{quoted}?t={{t}}",
+            edit_url=f"/song/{quoted}?edit=1",
         )
+
+    def edit_song(self, slug: str, chords: dict[str, str]) -> str | None:
+        """Save edited chord lines. Returns the slug, or None if it is gone."""
+        path = self.library.path_for_slug(slug)
+        if path is None:
+            return None
+        self.library.save(self.library.load(path).edited(chords))
+        return slug
 
     def view_page(self, url: str, semitones: int = 0) -> str:
         """Read a song without keeping it. Opening is not the same as wanting."""
@@ -188,7 +203,11 @@ class _Handler(BaseHTTPRequestHandler):
             self._html(app.settings_page())
         elif parsed.path.startswith("/song/"):
             slug = urllib.parse.unquote(parsed.path[len("/song/") :])
-            page = app.song_page(slug, _semitones(query.get("t", ["0"])[0]))
+            page = app.song_page(
+                slug,
+                _semitones(query.get("t", ["0"])[0]),
+                editing=query.get("edit", [""])[0] == "1",
+            )
             self._html(page) if page else self._oops(404, "No such song.")
         else:
             self._oops(404, "Nothing here.")
@@ -206,6 +225,13 @@ class _Handler(BaseHTTPRequestHandler):
         elif path == "/delete":
             app.delete(form.get("slug", [""])[0])
             self._see_other("/")
+        elif path == "/edit":
+            slug = form.get("slug", [""])[0]
+            chords = {k: v[0] for k, v in form.items() if k[:1] in ("c", "n") and k != "slug"}
+            saved = app.edit_song(slug, chords)
+            self._see_other(f"/song/{urllib.parse.quote(saved)}") if saved else self._oops(
+                404, "No such song."
+            )
         elif path == "/settings":
             self._html(app.set_library(form.get("library", [""])[0]))
         else:
@@ -213,7 +239,9 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _form(self) -> dict[str, list[str]]:
         length = int(self.headers.get("Content-Length") or 0)
-        return urllib.parse.parse_qs(self.rfile.read(length).decode("utf-8"))
+        return urllib.parse.parse_qs(
+            self.rfile.read(length).decode("utf-8"), keep_blank_values=True
+        )
 
     def _fetching(self, action) -> None:  # noqa: ANN001
         """Anything that reaches out can fail in exactly two ways."""
