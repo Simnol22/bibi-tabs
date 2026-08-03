@@ -12,9 +12,14 @@ currently in flight.
 
 ## Stack
 
-Python 3.10+, **standard library only**. No dependencies, no build step, no
-JavaScript. There is a local `http.server` app, bound to `127.0.0.1` and started
-by the command -- that is a UI shell, not infrastructure.
+Python 3.10+, **standard library only**. No dependencies, no build step. There
+is a local `http.server` app, bound to `127.0.0.1` and started by the command --
+that is a UI shell, not infrastructure.
+
+**JavaScript only where nothing else can do the job.** Two places, both small
+and both inline: a `confirm()` before deleting, and the auto-scroll script. The
+diagrams, the transposer and the editor are all HTML and CSS, and must stay
+that way -- reach for a script only after proving CSS cannot.
 
 ```bash
 conda activate bibi-tabs
@@ -79,6 +84,20 @@ bibi <ultimate-guitar-url>
 - **Markup inside `<pre>` must add no characters.** Chords are wrapped in spans
   for the diagram popups; the popup is absolutely positioned and carries no
   text, or it would both break the columns and paste twice when copied.
+- **Nothing in the popup may be selectable text** -- the voicing arrows are
+  drawn in CSS from an empty element and the "2/4" counter lives inside the SVG
+  symbol, because either one written as a character would paste with the sheet.
+- **The voicing carousel is radios plus `:checked ~ span:nth-of-type(n)`.** It
+  depends on every radio preceding every pane in the markup. Because they are
+  one radio group, the left and right keys navigate voicings for free -- and
+  the radios must stay focusable (offscreen, not `display:none`), or clicking an
+  arrow drops focus and `:focus-within` closes the popup under the pointer.
+- **One radio group per chord occurrence**, handed out by `next_group()`. One
+  group shared across a song would blank every other diagram in it the moment a
+  voicing was picked anywhere.
+- **Every occurrence carries its whole carousel**, so a 134-chord sheet is
+  184 KB rather than 35 KB. It is inert -- the popup is `display:none` until
+  hover -- but if it ever needs cutting, cap the voicings, do not share DOM.
 - **`<pre>` must not have an overflow container** -- it would clip the popups.
   Long lines scroll the page instead.
 - **One fret marker per diagram**, left margin, reading `2fr`. It labels the
@@ -90,6 +109,16 @@ bibi <ultimate-guitar-url>
 - **`<form>` must impose no layout.** The edit screen wraps the whole page in
   one, so a global `form { display:flex }` lays nav, header and sheet out in a
   row. Only `.bar` is flex.
+- **The auto-scroll control is `position:fixed`** for a reason: it is the one
+  control you reach for while the page is already moving, and a header-bound
+  Stop button is a thousand pixels away by then.
+- **Track the scroll position as a float and write it with `scrollTo`.**
+  `scrollBy` rounds to whole pixels, and at 5 px/s the rounding is the entire
+  movement -- the page would not move at all on the slowest setting.
+- **Auto-scroll must follow a reader who takes over**, not fight them. Each
+  frame compares `scrollY` to where it thinks it is and re-anchors when they
+  differ by more than 2px (rounding). Otherwise grabbing the scrollbar snaps
+  you back on the next frame.
 - **A chord can be wrapped in brackets** -- `(Dmaj7)` means an optional chord,
   and is distinct from brackets *inside* a symbol like `C(add9)`. Bar lines and
   beat slashes count neither way in the chord-line test. Both were found in a

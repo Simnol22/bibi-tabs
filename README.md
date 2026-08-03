@@ -84,7 +84,10 @@ Spelling follows the key the song lands *in*, not a fixed table — up one from 
 is `Bb`, never `A#`. It stops at the twelve practical note names, so Gb major
 prints `B` where strict theory wants `Cb`.
 
-**Hover or tap a chord to see its shape.** Diagrams come from
+**Hover or tap a chord to see its shape — and every other way to play it.** Most
+chords come with four voicings; arrows step through them and a small counter
+says which one you are on. It is a radio group under the surface, so the left
+and right keys work too. Diagrams come from
 [chords-db](https://github.com/tombatossals/chords-db) (MIT, © 2016 David
 Rubert), bundled at 256 KB so they work offline. A barre is one finger doing one
 thing, so it gets one number in the left margin rather than the same digit
@@ -92,13 +95,20 @@ repeated across every string it covers; the base fret stays in the right margin
 so the two can't be confused. Each distinct chord is drawn
 once as an SVG `<symbol>` and referenced with `<use>` — a sheet with 154 chord
 popups over 5 shapes stays a 35 KB page. Shown with CSS `:hover` and `:focus`,
-so there is no JavaScript and it still works on touch and by keyboard.
+so it needs no JavaScript and still works on touch and by keyboard.
 
-**Click the lock to edit the chords.** Each chord line becomes a monospace
-field sitting exactly where it was, with its lyric static underneath: spaces
-move a chord, clearing the field deletes the line, and every lyric without
-chords gets an empty field so you can add one. Lock again to save. Lyrics are
-not editable, so a stray keystroke cannot damage the words.
+**Auto-scroll while you play.** A fixed control in the corner starts the sheet
+moving and takes a speed from 1 to 10 — around 5 to 50 pixels a second, changed
+without stopping. It follows you if you grab the scrollbar mid-song, and stops
+at the bottom. This is the one thing in the program that needs JavaScript;
+nothing else can move the viewport.
+
+**Click the lock to edit.** Each line becomes a monospace field sitting exactly
+where it was: spaces move a chord, clearing the field deletes the line, and
+every lyric without chords gets an empty field above it so you can add one.
+Lock again to save. Every line is editable, including lyrics — a mistyped chord
+stops the line reading as chords, and if only chord lines had fields the typo
+could never be undone from inside the app.
 
 Unlocking always shows the **stored** key, whatever you were transposed to.
 Saving an edit made against a shifted view would silently re-key the song.

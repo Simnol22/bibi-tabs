@@ -1,7 +1,7 @@
 """A chord shape as an SVG fret diagram.
 
-Emitted as <symbol> definitions once per distinct chord, so a sheet using five
-chords carries five diagrams rather than one per occurrence.
+Emitted as <symbol> definitions once per distinct chord *voicing*, so a sheet
+using five chords carries their shapes once rather than one set per occurrence.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ def symbol_id(index: int) -> str:
     return f"chord-{index}"
 
 
-def symbol(shape: Shape, index: int) -> str:
+def symbol(shape: Shape, index: int, position: int = 1, total: int = 1) -> str:
     """One diagram, as a reusable <symbol>.
 
     A barre is drawn plain, with no number repeated across the strings it
@@ -32,6 +32,11 @@ def symbol(shape: Shape, index: int) -> str:
     when there is one, otherwise beside the top row when the diagram starts
     part-way up the neck. It reads "2fr", so it can never be mistaken for a
     finger number.
+
+    `position` of `total` labels which voicing this is. It is drawn inside the
+    symbol rather than beside the popup so it costs nothing per occurrence, and
+    so it stays out of the page's text: SVG inside a <use> cannot be selected,
+    and anything selectable in the popup would paste when the sheet is copied.
     """
     x = lambda s: _LEFT + s * _STRING_GAP  # noqa: E731
     y = lambda f: _TOP + (f - 0.5) * _FRET_GAP  # noqa: E731
@@ -53,6 +58,12 @@ def symbol(shape: Shape, index: int) -> str:
         parts.append(
             f'<line x1="{x(s)}" y1="{_TOP}" x2="{x(s)}" y2="{_TOP + _FRETS * _FRET_GAP}" '
             f'stroke="currentColor" stroke-width="1.2" opacity=".5"/>'
+        )
+
+    if total > 1:
+        parts.append(
+            f'<text x="1" y="{_TOP - 6}" font-size="8.5" font-weight="600" '
+            f'fill="currentColor" opacity=".5">{position}/{total}</text>'
         )
 
     marker = _fret_marker(shape)
@@ -113,21 +124,37 @@ class Diagrams:
     """Collects the distinct chords on a sheet and hands out symbol ids."""
 
     def __init__(self) -> None:
-        self._ids: dict[str, int] = {}
+        self._ids: dict[str, tuple[str, ...]] = {}
         self._symbols: list[str] = []
+        self._groups = 0
 
-    def add(self, token: str) -> str | None:
-        """Register a chord, returning its symbol id, or None if unknown."""
+    def add(self, token: str) -> tuple[str, ...]:
+        """Register a chord, returning a symbol id per voicing, commonest first.
+
+        Empty when the dataset has no shape for it.
+        """
         if token in self._ids:
-            return symbol_id(self._ids[token])
+            return self._ids[token]
 
         found = shapes(token)
         if not found:
-            return None
-        index = len(self._symbols)
-        self._ids[token] = index
-        self._symbols.append(symbol(found[0], index))
-        return symbol_id(index)
+            return ()
+        refs = []
+        for position, shape in enumerate(found, start=1):
+            index = len(self._symbols)
+            self._symbols.append(symbol(shape, index, position, len(found)))
+            refs.append(symbol_id(index))
+        self._ids[token] = tuple(refs)
+        return self._ids[token]
+
+    def next_group(self) -> str:
+        """A name for one popup's radio group, unique within the page.
+
+        Every occurrence needs its own group: sharing one across a song would
+        make picking a voicing in one place blank the diagram everywhere else.
+        """
+        self._groups += 1
+        return f"v{self._groups}"
 
     def defs(self) -> str:
         if not self._symbols:

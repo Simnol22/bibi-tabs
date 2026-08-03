@@ -17,8 +17,12 @@ syllables. Saved as plain text so it works with no connection. Nothing else.
 ## Stack
 
 Python 3.10+, standard library only. conda env `bibi-tabs`. `pytest` for tests.
-No dependencies, no build step, no JavaScript. A localhost-only `http.server`
-app exists as a UI shell -- it is not infrastructure.
+No dependencies, no build step. A localhost-only `http.server` app exists as a
+UI shell -- it is not infrastructure.
+
+JavaScript only where nothing else can do the job: a `confirm()` before
+deleting, and the auto-scroll script. Diagrams, transposer and editor are HTML
+and CSS and must stay that way.
 
 ## Shape
 

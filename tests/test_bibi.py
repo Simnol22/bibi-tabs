@@ -408,9 +408,13 @@ class TestDiagramsOnThePage:
         assert 'tabindex="0"' in self._page("C\naaaa")
 
     def test_a_distinct_chord_is_drawn_once_however_often_it_appears(self):
+        from bibi.fingering import shapes
+
         page = self._page("C   C   C\naaaa\nC   G\nbbbb")
-        assert page.count("<symbol ") == 2  # C and G, not five copies
-        assert page.count("<use ") == 5
+        # Every voicing of C and of G, defined once between them -- not one set
+        # per occurrence. Five occurrences reference them.
+        assert page.count("<symbol ") == len(shapes("C")) + len(shapes("G"))
+        assert page.count("<use ") == 4 * len(shapes("C")) + len(shapes("G"))
 
     def test_a_chord_with_no_known_shape_is_left_as_plain_text(self):
         page = self._page("Cmaj7b13 x4\naaaa")
@@ -435,6 +439,78 @@ class TestDiagramsOnThePage:
 
     def test_no_definitions_when_nothing_is_recognised(self):
         assert "<symbol" not in self._page("aaaa bbbb\ncccc")
+
+
+class TestMultipleVoicings:
+    """The dataset knew four or five ways to play most chords all along; only
+    the first was ever drawn."""
+
+    def _page(self, body="C\naaaa"):
+        return HtmlRenderer().render(Song(title="x", body=body))
+
+    def test_every_voicing_the_dataset_knows_is_offered(self):
+        from bibi.fingering import shapes
+
+        page = self._page()
+        assert page.count("<use ") == len(shapes("C")) >= 4
+
+    def test_one_radio_per_voicing_and_the_first_is_checked(self):
+        from bibi.fingering import shapes
+
+        page = self._page()
+        assert page.count("<input type=\"radio\"") == len(shapes("C"))
+        assert page.count(" checked>") == 1
+
+    def test_arrows_wrap_around_so_neither_is_a_dead_end(self):
+        from bibi.fingering import shapes
+
+        page = self._page()
+        last = len(shapes("C")) - 1
+        # First pane's "previous" reaches the last voicing, last pane's "next"
+        # comes back to the first. Previous is always the first label of a pane.
+        first_pane = page.split('<span class="pop">')[1].split("</span>")[0]
+        assert f'<label for="v1-{last}"></label>' in first_pane
+        assert page.count('<label for="v1-0"></label>') == 2  # pane 2's prev, last's next
+
+    def test_each_occurrence_gets_its_own_radio_group(self):
+        # One shared group would blank every other diagram in the song the
+        # moment you picked a voicing anywhere.
+        page = self._page("C   C\naaaa bbbb")
+        assert 'name="v1"' in page and 'name="v2"' in page
+
+    def test_the_arrows_carry_no_text_to_paste(self):
+        # Everything in the popup lands inside the <pre>. A character here
+        # would come along when the sheet is copied.
+        sheet = self._page().split("<pre>")[1].split("</pre>")[0]
+        assert "<label" in sheet
+        assert not re.search(r"<label[^>]*>(?!</label>)", sheet)
+        # And the whole sheet still strips back to exactly the stored text.
+        assert re.sub(r"<[^>]+>", "", sheet) == "C\naaaa"
+
+    def test_the_sheet_still_reads_exactly_as_stored(self):
+        page = HtmlRenderer().render(Song(title="x", body="C    G\naaaa bbbb"))
+        line = re.search(r'<span class="c">(.*?)</span>\n', page, re.S).group(1)
+        assert re.sub(r"<[^>]+>", "", line) == "C    G"
+
+    def test_a_counter_says_which_voicing_this_is(self):
+        # Drawn inside the symbol: it costs nothing per occurrence, and SVG in
+        # a <use> cannot be selected, so it never pastes.
+        page = self._page()
+        assert ">1/4</text>" in page and ">4/4</text>" in page
+
+    def test_a_chord_with_one_shape_gets_no_arrows_and_no_counter(self):
+        from bibi.diagram import Diagrams, symbol
+        from bibi.fingering import Shape
+
+        alone = symbol(Shape(frets=(0,), fingers=(0,), base_fret=1), 0)
+        assert "/1</text>" not in alone
+        assert 'class="go' not in HtmlRenderer()._popup(("chord-0",), "v1")
+
+    def test_the_carousel_needs_no_javascript(self):
+        from bibi.render import _CSS, _JS
+
+        assert ":checked ~ span" in _CSS
+        assert "pop" not in _JS and "voicing" not in _JS
 
 
 class TestSong:
@@ -1206,6 +1282,45 @@ class TestLockAndUnlock:
 
     def test_editing_a_song_that_is_gone_is_not_a_crash(self, tmp_path):
         assert self._server(tmp_path).edit_song("absent", {"l0": "C"}) is None
+
+
+class TestAutoScroll:
+    """The one feature that needs JavaScript, because nothing else can move the
+    viewport. Everything it touches has to stay outside the sheet."""
+
+    def _page(self):
+        return HtmlRenderer().render(Song(title="T", body="C   G\naaaa bbbb"))
+
+    def test_the_song_page_offers_scroll_and_a_speed(self):
+        page = self._page()
+        assert 'id="scroll"' in page
+        assert 'id="slower"' in page and 'id="faster"' in page
+        assert 'id="level"' in page
+
+    def test_the_control_sits_outside_the_sheet(self):
+        # Markup inside <pre> would add characters and break the columns.
+        sheet = self._page().split("<pre>")[1].split("</pre>")[0]
+        assert 'class="sc"' not in sheet
+        assert "<script" not in sheet
+
+    def test_the_speed_buttons_cannot_submit_anything(self):
+        # A bare <button> defaults to submit; the save form lives on this page.
+        for control in ("scroll", "slower", "faster"):
+            assert f'<button type="button"' in self._page().split(f'id="{control}"')[0]
+
+    def test_the_editor_does_not_scroll_away_under_you(self):
+        page = HtmlRenderer().edit(Song(title="T", body="C   G\naaaa bbbb"))
+        assert 'class="sc"' not in page and "<script" not in page
+
+    def test_it_is_not_printed(self):
+        from bibi.render import _CSS
+
+        assert re.search(r"@media print\s*{\s*\.sc\s*{\s*display:none", _CSS)
+
+    def test_the_script_does_not_break_out_of_its_tag(self):
+        from bibi.render import _JS
+
+        assert "</script" not in _JS.lower()
 
 
 class TestCliWiring:

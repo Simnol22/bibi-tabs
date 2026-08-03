@@ -90,17 +90,62 @@ nav a { text-decoration:none; }
 .meta s { opacity:.55; }
 @media print { nav, .tr { display:none } }
 
+/* auto-scroll -- fixed, because it is the one control you reach for while the
+   page is already moving, and the header is long gone by then. */
+.sc { position:fixed; right:1rem; bottom:1rem; z-index:20;
+      display:flex; align-items:center; gap:.4rem;
+      padding:.4rem .5rem; border-radius:12px; border:1px solid #8883;
+      background:color-mix(in srgb, var(--bg) 88%, transparent);
+      backdrop-filter:blur(6px); color:var(--muted); font-size:.85rem; }
+.sc button { font:inherit; padding:.3rem .6rem; border-radius:8px;
+             border:1px solid #8883; background:none; color:var(--fg); }
+.sc button:hover { border-color:var(--accent); }
+.sc .go { background:var(--accent); color:#fff; border-color:transparent; }
+.sc .step { min-width:2rem; font-size:1rem; line-height:1.1; }
+.sc b { min-width:1.3rem; text-align:center; color:var(--fg); font-size:1rem; }
+@media print { .sc { display:none } }
+
 /* chord diagrams -- hover on a pointer, tap or tab elsewhere. No JavaScript. */
 .defs { display:none; }
 .ch { position:relative; cursor:help; outline:none; }
 .ch:hover, .ch:focus { text-decoration:underline dotted; }
 .pop { display:none; position:absolute; top:1.7em; left:-.4em; z-index:9;
        background:var(--bg); border:1px solid #8884; border-radius:10px;
-       padding:.5rem .6rem .35rem; box-shadow:0 6px 22px rgb(0 0 0 / .18);
+       padding:.5rem 1.6rem .35rem; box-shadow:0 6px 22px rgb(0 0 0 / .18);
        color:var(--fg); }
 .ch:hover .pop, .ch:focus .pop, .ch:focus-within .pop { display:block; }
+/* Bridges the gap under the chord, or the popup closes as you reach for it. */
+.pop::before { content:''; position:absolute; left:0; right:0; top:-.8em; height:.8em; }
 .pop svg { display:block; width:110px; height:auto; }
 @media print { .pop { display:none !important } }
+
+/* Voicings: a radio per shape, one pane visible. The arrows are <label>s, so
+   picking one is a click with no script behind it -- and because they are also
+   a radio group, the left and right keys step through them for free. */
+.pop > input { position:absolute; opacity:0; width:1px; height:1px; margin:0; }
+.pop > span { display:none; position:relative; }
+.pop > span:only-of-type { display:block; }
+.pop > input:nth-of-type(1):checked ~ span:nth-of-type(1),
+.pop > input:nth-of-type(2):checked ~ span:nth-of-type(2),
+.pop > input:nth-of-type(3):checked ~ span:nth-of-type(3),
+.pop > input:nth-of-type(4):checked ~ span:nth-of-type(4),
+.pop > input:nth-of-type(5):checked ~ span:nth-of-type(5),
+.pop > input:nth-of-type(6):checked ~ span:nth-of-type(6),
+.pop > input:nth-of-type(7):checked ~ span:nth-of-type(7) { display:block; }
+/* The radios are invisible, so the popup carries the focus ring for them. */
+.pop:has(input:focus-visible) { outline:2px solid var(--accent); outline-offset:2px; }
+/* Previous, then next: the order is the meaning, so they carry no class. */
+.pop label { position:absolute; top:50%; margin-top:-.9rem; width:1.4rem; height:1.8rem;
+             display:flex; align-items:center; justify-content:center;
+             cursor:pointer; opacity:.4; }
+.pop label:hover { opacity:1; }
+.pop label:first-of-type { left:-1.4rem; }
+.pop label:last-of-type { right:-1.4rem; }
+/* Drawn, not written: a character here would paste with the copied sheet. */
+.pop label::before { content:''; width:.4rem; height:.4rem;
+                     border-right:2px solid currentColor;
+                     border-bottom:2px solid currentColor; transform:rotate(-45deg); }
+.pop label:first-of-type::before { transform:rotate(135deg); }
 
 /* editing -- fields share the monospace grid with the lyrics beneath them */
 .lock { font-size:1.2rem; text-decoration:none; }
@@ -117,6 +162,55 @@ nav a { text-decoration:none; }
 .hint { color:var(--muted); font-size:.85rem; max-width:44rem; }
 /* A token on a chord line that is not a chord: an annotation, or a typo. */
 .nc { color:var(--muted); font-weight:400; }
+"""
+
+#: The only JavaScript in the program. Nothing else can move the viewport: CSS
+#: can slide content upward, but then the sheet would crawl out from under its
+#: own chord popups, and the speed could not answer while it played.
+#:
+#: Speed is a level, 1 to 10, kept in the browser so it carries between songs.
+#: Position is tracked as a float and written with scrollTo -- scrollBy rounds,
+#: and at five pixels a second the rounding is the whole movement.
+_JS = """
+(function () {
+  var PER_LEVEL = 5, TOP = 10;          // pixels a second, at level 1
+  var button = document.getElementById('scroll');
+  var shown = document.getElementById('level');
+  var level = Math.min(TOP, Math.max(1, +localStorage.getItem('bibi-scroll') || 2));
+  var at = 0, last = 0, running = false;
+
+  function step(now) {
+    if (!running) return;
+    // Somebody grabbed the scrollbar, or hit a key. Follow, do not fight.
+    if (Math.abs(scrollY - at) > 2) at = scrollY;
+    at += (now - last) * level * PER_LEVEL / 1000;
+    last = now;
+    scrollTo(0, at);
+    if (at >= document.documentElement.scrollHeight - innerHeight) return run(false);
+    requestAnimationFrame(step);
+  }
+
+  function run(wanted) {
+    running = wanted;
+    button.textContent = running ? '\\u23F8 Pause' : '\\u25B6 Scroll';
+    button.classList.toggle('go', running);
+    if (!running) return;
+    at = scrollY;
+    last = performance.now();
+    requestAnimationFrame(step);
+  }
+
+  function nudge(by) {
+    level = Math.min(TOP, Math.max(1, level + by));
+    shown.textContent = level;
+    localStorage.setItem('bibi-scroll', level);
+  }
+
+  button.onclick = function () { run(!running); };
+  document.getElementById('slower').onclick = function () { nudge(-1); };
+  document.getElementById('faster').onclick = function () { nudge(1); };
+  nudge(0);
+})();
 """
 
 
@@ -148,7 +242,8 @@ class HtmlRenderer:
             f"<body>{self._nav(home, save_url, saved, edit_url)}"
             f"<header>{self._header(song, semitones)}"
             f"{self._transposer(transpose_url, semitones)}</header>"
-            f"<pre>{body}</pre>{defs}</body></html>\n"
+            f"<pre>{body}</pre>{defs}{self._autoscroll()}"
+            f"<script>{_JS}</script></body></html>\n"
         )
 
     def edit(self, song: Song) -> str:
@@ -223,6 +318,25 @@ class HtmlRenderer:
             f"<b>{showing}</b>"
             f'<a href="{url.format(t=up)}" aria-label="Up a semitone">+</a>'
             f"{reset}</div>"
+        )
+
+    def _autoscroll(self) -> str:
+        """Play/pause and a speed level, sitting above the sheet.
+
+        Buttons rather than links: transposing asks the server for another
+        rendering, but changing speed mid-song must not reload the page and
+        throw you back to the top. The level shown here is a placeholder --
+        the script fills it in from whatever was last chosen.
+        """
+        return (
+            '<div class="sc">'
+            '<button type="button" id="scroll">&#9654; Scroll</button>'
+            '<button type="button" class="step" id="slower" '
+            'aria-label="Slower">&minus;</button>'
+            '<b id="level">2</b>'
+            '<button type="button" class="step" id="faster" '
+            'aria-label="Faster">+</button>'
+            "</div>"
         )
 
     def write(self, song: Song, path: Path) -> Path:
@@ -395,6 +509,42 @@ class HtmlRenderer:
         """
         return self._tokens(line, diagrams, lambda t: True, None, plain_is_muted=True)
 
+    def _popup(self, refs: tuple[str, ...], group: str) -> str:
+        """Every known voicing of one chord, one visible at a time.
+
+        A radio per voicing and a pair of <label> arrows per pane: checking a
+        radio swaps the pane, which is a carousel with no JavaScript in it. The
+        arrows wrap around, so neither one is ever a dead end.
+
+        Nothing here may be selectable text. The popup sits inside the <pre>,
+        so a stray character would paste when the sheet is copied -- the arrows
+        are drawn in CSS from an empty element, and the "2 of 4" counter lives
+        inside the SVG symbol where selection cannot reach it.
+        """
+        if len(refs) == 1:
+            return (
+                f'<span class="pop"><span><svg viewBox="0 0 {WIDTH} {HEIGHT}">'
+                f'<use href="#{refs[0]}"/></svg></span></span>'
+            )
+
+        last = len(refs) - 1
+        radios = "".join(
+            f'<input type="radio" name="{group}" id="{group}-{i}"'
+            f'{" checked" if i == 0 else ""}>'
+            for i in range(len(refs))
+        )
+        # The two labels are always previous then next, so their order carries
+        # the meaning and they need no class of their own -- worth 15 KB on a
+        # sheet with a hundred chords in it.
+        panes = "".join(
+            f'<span><svg viewBox="0 0 {WIDTH} {HEIGHT}"><use href="#{ref}"/></svg>'
+            f'<label for="{group}-{i - 1 if i else last}"></label>'
+            f'<label for="{group}-{0 if i == last else i + 1}"></label>'
+            "</span>"
+            for i, ref in enumerate(refs)
+        )
+        return f'<span class="pop">{radios}{panes}</span>'
+
     def _tokens(self, line, diagrams, wanted, transposer, plain_is_muted):  # noqa: ANN001
         out = []
         cursor = 0
@@ -418,8 +568,8 @@ class HtmlRenderer:
                 )
                 continue
 
-            ref = diagrams.add(token)
-            if ref is None:
+            refs = diagrams.add(token)
+            if not refs:
                 out.append(html.escape(token))
             else:
                 # tabindex makes it work on touch, where there is no hover.
@@ -428,8 +578,7 @@ class HtmlRenderer:
                 # every chord twice.
                 out.append(
                     f'<span class="ch" tabindex="0">{html.escape(token)}'
-                    f'<span class="pop"><svg viewBox="0 0 {WIDTH} {HEIGHT}">'
-                    f'<use href="#{ref}"/></svg></span></span>'
+                    f"{self._popup(refs, diagrams.next_group())}</span>"
                 )
         out.append(html.escape(line[cursor:]))
         return "".join(out)

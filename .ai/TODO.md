@@ -2,14 +2,22 @@
 
 ## Current Sprint
 
-V1.1 is done: search, fetch, read. Verified end to end against live UG. Nothing
-in flight. Next step is Simon using it on real songs and reporting what's wrong.
+V1.12 is committed. **V1.13 — auto-scroll and multiple voicings — is written and
+tested but uncommitted, and Simon has not seen either in a browser.**
 
+- [ ] Simon: check auto-scroll on a real song — is level 2 (10 px/s) a sensible
+      default, and does the pill sit somewhere that isn't in the way?
+- [ ] Simon: check the voicing arrows — do they stay open while you click them?
+- [ ] Decide whether 184 KB per sheet is too heavy (cap voicings at 3 if so)
 - [ ] Use it for a week; note anything that reads badly
 - [ ] Check a song with a `[tab]`-heavy intro (riff notation, not chords)
 - [ ] Check a song whose chord line runs past the end of the lyric
 - [ ] Decide whether search needs an artist filter (title-only today)
 - [ ] Consider moving songs somewhere visible in Finder (`~/.bibi-tabs` is hidden)
+
+Settled 2026-08-02: **this stays a personal tool.** Simon asked whether it could
+go on the Play Store; the lyrics are licensed content that UG pays for and this
+app would not, so no. Do not build sharing or distribution.
 
 ---
 
@@ -151,6 +159,26 @@ in flight. Next step is Simon using it on real songs and reporting what's wrong.
 - [x] Measured first on four real songs: 4 genuine chords gained, 4 false
       positives avoided, all four of them single letters
 - [x] `_tokens()` now serves both paths instead of two near-copies
+
+## V1.13 — auto-scroll and multiple voicings, written, not yet verified by hand
+
+- [x] Fixed play/pause pill with a speed level 1–10, changeable mid-scroll
+- [x] Speed kept in `localStorage`, so it carries between songs
+- [x] Position tracked as a float and written with `scrollTo` — `scrollBy`
+      rounds, and at 5 px/s the rounding is the whole movement
+- [x] Re-anchors when the reader takes over, instead of snapping them back
+- [x] Stops at the bottom; hidden when printing
+- [x] **First JavaScript in the project.** Nothing else can move the viewport;
+      the rule is now "only where nothing else can do the job"
+- [x] Every voicing the dataset knows, arrows to step through, wrap-around
+- [x] Radios + `:checked ~ span:nth-of-type(n)` — the carousel needs no script,
+      and the radio group gives left/right key navigation free
+- [x] Arrows drawn in CSS from an empty element, counter drawn inside the SVG
+      symbol: nothing in the popup is selectable, so copying the sheet is clean
+- [x] One radio group per occurrence, or picking a voicing blanks the rest
+- [x] Verified the script against a stubbed DOM in node; sheet still strips
+      back to exactly the stored text
+- [ ] Not verified in a browser by Simon
 
 ## Possible, only if actually missed
 
