@@ -99,6 +99,9 @@ bibi/cli.py              App — wires them together
 - Search results include paid "Pro" entries with no sheet; filter on
   `type == "Chords"` and host `tabs.ultimate-guitar.com`.
 - Slugs fold accents (`Drôle` → `drole`); dropping them gives `dr-le`.
+- `unambiguous_chord()` gates per-token colouring outside a chord line: two
+  characters or more and not `Am`. Do not loosen it without re-measuring -- a
+  lone `A` is a word.
 - `(Dmaj7)` is an optional chord and parses; `C(add9)` keeps its inner
   brackets. `|`, `:`, `/`, `%` count neither way in the chord-line test.
 - Boîte à Chansons anchors chords inline between syllables, so `lay_out` builds

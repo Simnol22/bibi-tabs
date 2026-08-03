@@ -94,6 +94,11 @@ bibi <ultimate-guitar-url>
   and is distinct from brackets *inside* a symbol like `C(add9)`. Bar lines and
   beat slashes count neither way in the chord-line test. Both were found in a
   real song, where `G  (Dmaj7)` scored 1/2 and the line stopped being chords.
+- **An unmistakable chord counts anywhere**, not only on a chord line -- real
+  sheets put them in intro notes that never reach the threshold. `Dmaj7` is a
+  chord wherever it sits; a lone `A`, or `Am`, is a word far more often, so
+  those stay line-gated. Measured on four songs: 4 real chords gained, 4 false
+  positives avoided, and every false positive was a single letter.
 - **The chord-line test is a heuristic** (≥80% of tokens parse as chords). It
   only picks colour. Do not let anything load-bearing depend on it.
 - **Pro tabs and tab-type pages have no `wiki_tab.content`** and raise

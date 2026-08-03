@@ -13,11 +13,25 @@ re-viewing showed "Saved" with no button, delete emptied the library.
 There is also a Settings page (the song folder is configurable, songs move with
 it), a transposer on every song page, and chord diagrams on hover or tap.
 
-205 tests, no network. conda env `bibi-tabs` (python 3.11), zero dependencies.
+211 tests, no network. conda env `bibi-tabs` (python 3.11), zero dependencies.
 
 ## In flight
 
 Nothing.
+
+## Chords among words (2026-08-02)
+
+Simon asked whether a valid chord should count wherever it appears, not only on
+a recognised chord line. Measured before deciding, across four real songs: of
+1193 tokens on non-chord lines, 8 would newly become chords -- 4 genuine
+(`Dmaj7` x3, `A7sus4`) and 4 false positives (`A` x2, `C`, `E`), every one of
+them a single letter.
+
+So the rule is per-token but gated: `unambiguous_chord()` requires two
+characters or more and rejects `Am`. That gains all four real chords and avoids
+all four false positives. On the reported song, three `Dmaj7` now light up and
+no words were caught. Strays transpose with everything else -- left behind they
+would go stale.
 
 ## Two bugs from one reported song (2026-08-02)
 

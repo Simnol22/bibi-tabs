@@ -53,6 +53,18 @@ def chord_in(token: str) -> Chord | None:
     return Chord.parse(split_wrap(token)[1])
 
 
+def unambiguous_chord(token: str) -> Chord | None:
+    """A chord whose spelling could not also be an ordinary word.
+
+    `Dmaj7` or `A7sus4` is a chord wherever it appears. A lone `A`, or `Am`, is
+    a word far more often, so those only count on a line already read as chords.
+    """
+    core = split_wrap(token)[1]
+    if len(core) < 2 or core == "Am":
+        return None
+    return Chord.parse(core)
+
+
 def looks_like_chords(text: str) -> bool:
     """True when a line is a chord line rather than a lyric.
 

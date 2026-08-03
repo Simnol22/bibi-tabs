@@ -142,6 +142,16 @@ in flight. Next step is Simon using it on real songs and reporting what's wrong.
       unclassifiable, which removed its field and froze the typo in place
 - [x] Verified on the reported song: the line reads as chords, all lines editable
 
+## V1.12 — chords among words, done
+
+- [x] A chord standing in a line of words is coloured and hoverable, and shifts
+      with the transposition like any other
+- [x] Gated by `unambiguous_chord()`: a lone `A` or `Am` is a word far more
+      often, so those still need a recognised chord line
+- [x] Measured first on four real songs: 4 genuine chords gained, 4 false
+      positives avoided, all four of them single letters
+- [x] `_tokens()` now serves both paths instead of two near-copies
+
 ## Possible, only if actually missed
 
 Nothing here is planned. Listed so the reasoning isn't relitigated each time.

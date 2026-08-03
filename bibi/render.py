@@ -11,7 +11,13 @@ import re
 import urllib.parse
 from pathlib import Path  # noqa: TC003 - used in signatures at runtime
 
-from .chords import MAX_TRANSPOSE, Transposer, chord_in, transpose_key
+from .chords import (
+    MAX_TRANSPOSE,
+    Transposer,
+    chord_in,
+    transpose_key,
+    unambiguous_chord,
+)
 from .diagram import HEIGHT, WIDTH, Diagrams
 from .song import SearchResult, Song, looks_like_chords
 
@@ -367,8 +373,19 @@ class HtmlRenderer:
                 shifted = transposer.line(line.text)
                 rows.append(f'<span class="c">{self._chords(shifted, diagrams)}</span>')
             else:
-                rows.append(html.escape(line.text))
+                rows.append(self._stray_chords(line.text, transposer, diagrams))
         return "\n".join(rows), diagrams.defs()
+
+    def _stray_chords(self, line: str, transposer: Transposer, diagrams: Diagrams) -> str:
+        """Colour a chord standing among words, on a line that is not a chord line.
+
+        Real sheets put chords in intro notes and annotations, where the line
+        never reaches the 80% threshold. Only unmistakable spellings qualify --
+        a lone `A` is a word far more often than a chord. These shift with the
+        transposition like any other chord, or they would go stale.
+        """
+        return self._tokens(line, diagrams, lambda t: unambiguous_chord(t) is not None,
+                            transposer, plain_is_muted=False)
 
     def _chords(self, line: str, diagrams: Diagrams) -> str:
         """Wrap each chord so it can show its shape, leaving columns untouched.
@@ -376,17 +393,33 @@ class HtmlRenderer:
         The spans add no characters, and the popup is absolutely positioned, so
         the alignment inside <pre> is exactly as it was.
         """
+        return self._tokens(line, diagrams, lambda t: True, None, plain_is_muted=True)
+
+    def _tokens(self, line, diagrams, wanted, transposer, plain_is_muted):  # noqa: ANN001
         out = []
         cursor = 0
         for match in re.finditer(r"\S+", line):
             out.append(html.escape(line[cursor : match.start()]))
             token = match.group()
-            ref = diagrams.add(token)
+            cursor = match.end()
+
+            if not wanted(token):
+                out.append(html.escape(token))
+                continue
+            if transposer is not None:
+                token = transposer.token(token)
             if chord_in(token) is None:
-                # Not a chord at all -- an annotation like "x4", or a typo made
-                # while editing. Muted, so a mistake is visible once locked.
-                out.append(f'<span class="nc">{html.escape(token)}</span>')
-            elif ref is None:
+                # Not a chord: an annotation like "x4", or a typo made while
+                # editing. Muted, so a mistake is visible once locked.
+                out.append(
+                    f'<span class="nc">{html.escape(token)}</span>'
+                    if plain_is_muted
+                    else html.escape(token)
+                )
+                continue
+
+            ref = diagrams.add(token)
+            if ref is None:
                 out.append(html.escape(token))
             else:
                 # tabindex makes it work on touch, where there is no hover.
@@ -396,9 +429,8 @@ class HtmlRenderer:
                 out.append(
                     f'<span class="ch" tabindex="0">{html.escape(token)}'
                     f'<span class="pop"><svg viewBox="0 0 {WIDTH} {HEIGHT}">'
-                    f'<use href="#{ref}"/></svg>'
-                    f"</span></span>"
+                    f'<use href="#{ref}"/></svg></span></span>'
                 )
-            cursor = match.end()
         out.append(html.escape(line[cursor:]))
         return "".join(out)
+

@@ -80,6 +80,50 @@ class TestBracketedAndPunctuation:
         assert 'class="c"' in page
 
 
+class TestChordsAmongWords:
+    """A chord in an intro note or annotation sits on a line that never reaches
+    the 80% threshold. Measured across four real songs: doing this per token
+    gains 4 genuine chords and costs 4 false positives, all of them single
+    letters -- which is exactly what the ambiguity rule excludes."""
+
+    def _page(self, body, **kw):
+        return HtmlRenderer().render(Song(title="T", body=body, **kw))
+
+    def test_an_unmistakable_spelling_counts_anywhere(self):
+        from bibi.chords import unambiguous_chord
+
+        for token in ["Dmaj7", "A7sus4", "Bb", "F#m7b5", "C7", "Em"]:
+            assert unambiguous_chord(token), token
+
+    def test_a_spelling_that_is_also_a_word_does_not(self):
+        from bibi.chords import unambiguous_chord
+
+        for token in ["A", "C", "E", "G", "Am"]:
+            assert unambiguous_chord(token) is None, token
+
+    def test_a_chord_among_words_is_coloured_and_hoverable(self):
+        page = self._page("Intro : Dmaj7 puis on repart\naaaa bbbb")
+        assert '<span class="ch" tabindex="0">Dmaj7' in page
+
+    def test_a_lone_letter_among_words_is_left_alone(self):
+        page = self._page("aaaa A bbbb cccc dddd\neeee")
+        assert 'class="ch"' not in page
+
+    def test_a_stray_chord_still_moves_with_the_transposition(self):
+        # Left behind, it would say Dmaj7 while every real chord had shifted.
+        page = self._page("Intro : Dmaj7 puis on repart\naaaa", key="D")
+        assert "Dmaj7" in page
+        shifted = HtmlRenderer().render(
+            Song(title="T", key="D", body="Intro : Dmaj7 puis on repart\naaaa"), semitones=2
+        )
+        assert "Emaj7" in shifted and ">Dmaj7<" not in shifted
+
+    def test_the_rest_of_the_line_stays_plain(self):
+        page = self._page("Intro : Dmaj7 puis on repart\naaaa")
+        assert "puis on repart" in page
+        assert 'class="nc"' not in page  # words are not muted typos
+
+
 class TestChordParsing:
     def test_splits_a_chord_into_its_parts(self):
         from bibi.chords import Chord
