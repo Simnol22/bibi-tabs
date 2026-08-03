@@ -127,6 +127,12 @@ in flight. Next step is Simon using it on real songs and reporting what's wrong.
 - [x] Verified over HTTP: moved a chord 4 columns, deleted a line, reloaded,
       re-read from disk
 
+## V1.10 — editing polish, done
+
+- [x] Fix the page shifting sideways while editing: `form { display:flex }` was
+      global, and the edit screen wraps the whole page in a form
+- [x] Non-chord tokens on a chord line render muted, so typos show once locked
+
 ## Possible, only if actually missed
 
 Nothing here is planned. Listed so the reasoning isn't relitigated each time.

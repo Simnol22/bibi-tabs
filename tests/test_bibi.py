@@ -1018,6 +1018,51 @@ class TestTheEditScreen:
         assert 'class="tr"' not in self._page("C\naaaa")
 
 
+class TestFormsDoNotLayOutThePage:
+    """The edit screen wraps the whole page in a <form>. A bare
+    `form { display:flex }` therefore laid nav, header and sheet out in a row,
+    shifting everything sideways."""
+
+    def test_no_bare_form_layout_rule(self):
+        from bibi.render import _CSS
+
+        assert not re.search(r"(^|})\s*form\s*{[^}]*display\s*:\s*flex", _CSS)
+
+    def test_the_edit_form_claims_no_layout_class(self):
+        page = HtmlRenderer().edit(Song(title="T", body="C\naaaa"))
+        assert 'action="/edit"' in page
+        assert 'class="bar"' not in page
+
+    def test_the_search_and_settings_bars_still_get_it(self, tmp_path):
+        assert 'class="bar" action="/search"' in HtmlRenderer().index([])
+        assert 'class="bar" method="post" action="/settings"' in (
+            HtmlRenderer().settings(tmp_path)
+        )
+
+
+class TestUnrecognisedTokens:
+    def test_something_that_is_not_a_chord_is_muted(self):
+        # You can type anything into a chord field, so a typo should look
+        # different from a chord once the song is locked again.
+        page = HtmlRenderer().render(Song(title="T", body="C  G  Am  F  zzz\naaaa"))
+        assert '<span class="nc">zzz</span>' in page
+
+    def test_a_real_chord_is_not_muted(self):
+        page = HtmlRenderer().render(Song(title="T", body="C   G\naaaa bbbb"))
+        assert 'class="nc"' not in page
+
+    def test_a_common_annotation_reads_as_not_a_chord(self):
+        page = HtmlRenderer().render(Song(title="T", body="C  G  Am  F  x4\naaaa"))
+        assert '<span class="nc">x4</span>' in page
+
+    def test_too_much_nonsense_and_the_line_stops_being_chords_at_all(self):
+        # The 80% threshold decides that, and it decides it per line. Two
+        # chords and one typo is 67%, so the whole line reads as a lyric.
+        assert not looks_like_chords("C  G  zzz")
+        page = HtmlRenderer().render(Song(title="T", body="C  G  zzz\naaaa"))
+        assert 'class="c"' not in page
+
+
 class TestLockAndUnlock:
     def _server(self, tmp_path):
         from bibi.server import Server

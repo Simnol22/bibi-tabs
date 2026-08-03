@@ -13,11 +13,24 @@ re-viewing showed "Saved" with no button, delete emptied the library.
 There is also a Settings page (the song folder is configurable, songs move with
 it), a transposer on every song page, and chord diagrams on hover or tap.
 
-187 tests, no network. conda env `bibi-tabs` (python 3.11), zero dependencies.
+194 tests, no network. conda env `bibi-tabs` (python 3.11), zero dependencies.
 
 ## In flight
 
 Nothing.
+
+## The layout shift while editing (2026-08-02)
+
+`form { display:flex }` was written for the search bar, but the edit screen
+wraps the **whole page** in a form -- so nav, header and sheet became flex items
+laid out in a row and everything slid sideways. A `<form>` now imposes no
+layout; only `.bar` (search and settings) is flex. Pinned by a test that greps
+the stylesheet, since CSS has no other test surface here.
+
+Also: a token on a chord line that does not parse as a chord now renders muted,
+so a typo made while editing is visible once locked. Note the interaction with
+the 80% threshold -- enough nonsense and the line stops being a chord line
+at all and reads as a lyric.
 
 ## Editing chords (2026-08-02)
 

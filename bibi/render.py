@@ -11,7 +11,7 @@ import re
 import urllib.parse
 from pathlib import Path  # noqa: TC003 - used in signatures at runtime
 
-from .chords import MAX_TRANSPOSE, Transposer, transpose_key
+from .chords import MAX_TRANSPOSE, Chord, Transposer, transpose_key
 from .diagram import HEIGHT, WIDTH, Diagrams
 from .song import SearchResult, Song, looks_like_chords
 
@@ -40,7 +40,10 @@ a { color:var(--accent); }
 
 /* landing page */
 .wrap { max-width:60rem; margin:0 auto; }
-form { display:flex; gap:.5rem; margin:1rem 0 2rem; }
+/* A <form> imposes no layout: the edit screen wraps the whole page in one,
+   and a flex rule here laid nav, header and sheet out side by side. */
+form { margin:0; }
+.bar { display:flex; gap:.5rem; margin:1rem 0 2rem; }
 input[type=search] { flex:1; font:inherit; padding:.6rem .8rem; border-radius:8px;
   border:1px solid #8883; background:var(--bg); color:var(--fg); }
 button { font:inherit; padding:.6rem 1rem; border-radius:8px; border:1px solid #8883;
@@ -59,7 +62,6 @@ li .site { margin-left:auto; color:var(--muted); font-size:.7rem; letter-spacing
 .empty { color:var(--muted); }
 li.row { display:flex; align-items:center; border-bottom:1px solid #8882; }
 li.row a { flex:1; border:0; }
-li.row form { margin:0; }
 .del { background:none; border:0; color:var(--muted); font-size:1.4rem;
        line-height:1; padding:.2rem .6rem; }
 .del:hover { color:#d24; }
@@ -67,7 +69,6 @@ li.row form { margin:0; }
 /* song page nav */
 nav { display:flex; align-items:center; justify-content:space-between;
       gap:1rem; padding-bottom:1rem; }
-nav form { margin:0; }
 nav a { text-decoration:none; }
 .ok { color:var(--muted); font-size:.9rem; }
 
@@ -97,7 +98,7 @@ nav a { text-decoration:none; }
 
 /* editing -- fields share the monospace grid with the lyrics beneath them */
 .lock { font-size:1.2rem; text-decoration:none; }
-.edit { max-width:60rem; margin:0 auto; overflow-x:auto;
+.edit { max-width:60rem; margin:0 auto;
         font-family: ui-monospace, "SF Mono", Menlo, monospace;
         font-size:15px; line-height:1.5; }
 .edit .lyr { white-space:pre; }
@@ -107,6 +108,8 @@ nav a { text-decoration:none; }
 .chl:hover { background:color-mix(in srgb, var(--accent) 8%, transparent); }
 .chl:focus { outline:0; background:color-mix(in srgb, var(--accent) 14%, transparent); }
 .hint { color:var(--muted); font-size:.85rem; max-width:44rem; }
+/* A token on a chord line that is not a chord: an annotation, or a typo. */
+.nc { color:var(--muted); font-weight:400; }
 """
 
 
@@ -287,7 +290,7 @@ class HtmlRenderer:
             f"<title>BIBI-tabs</title><style>{_CSS}</style></head>"
             '<body><div class="wrap">'
             '<nav><h1>BIBI-tabs</h1><a href="/settings">Settings</a></nav>'
-            '<form action="/search" method="get">'
+            '<form class="bar" action="/search" method="get">'
             f'<input type="search" name="q" placeholder="Search a song" '
             f'value="{html.escape(query)}" autofocus>'
             "<button>Search</button></form>"
@@ -306,7 +309,7 @@ class HtmlRenderer:
             "<h1>Settings</h1>"
             f"{note}"
             '<h2>Where songs are kept</h2>'
-            '<form method="post" action="/settings">'
+            '<form class="bar" method="post" action="/settings">'
             f'<input type="text" name="library" value="{html.escape(str(library))}">'
             "<button>Save</button></form>"
             '<p class="empty">Songs move with the folder. They stay plain text '
@@ -378,7 +381,11 @@ class HtmlRenderer:
             out.append(html.escape(line[cursor : match.start()]))
             token = match.group()
             ref = diagrams.add(token)
-            if ref is None:
+            if Chord.parse(token) is None:
+                # Not a chord at all -- an annotation like "x4", or a typo made
+                # while editing. Muted, so a mistake is visible once locked.
+                out.append(f'<span class="nc">{html.escape(token)}</span>')
+            elif ref is None:
                 out.append(html.escape(token))
             else:
                 # tabindex makes it work on touch, where there is no hover.

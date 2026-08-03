@@ -85,6 +85,9 @@ bibi <ultimate-guitar-url>
   gets read as a fret, which is why it now carries "fr".
 - **Some `fingers` rows use `-1` for "no finger"** where others use `0`. Test
   `> 0`, or a diagram prints "-1".
+- **`<form>` must impose no layout.** The edit screen wraps the whole page in
+  one, so a global `form { display:flex }` lays nav, header and sheet out in a
+  row. Only `.bar` is flex.
 - **The chord-line test is a heuristic** (≥80% of tokens parse as chords). It
   only picks colour. Do not let anything load-bearing depend on it.
 - **Pro tabs and tab-type pages have no `wiki_tab.content`** and raise
