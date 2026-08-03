@@ -52,7 +52,10 @@ li a { display:flex; align-items:baseline; gap:.6rem; padding:.6rem .3rem;
        border-bottom:1px solid #8882; text-decoration:none; color:var(--fg); }
 li a:hover { color:var(--accent); }
 li .who { color:var(--muted); font-size:.9rem; }
-li .rate { margin-left:auto; color:var(--muted); font-size:.85rem; white-space:nowrap; }
+li .rate { color:var(--muted); font-size:.85rem; white-space:nowrap; min-width:5.5rem;
+           text-align:right; }
+li .site { margin-left:auto; color:var(--muted); font-size:.7rem; letter-spacing:.03em;
+           text-transform:uppercase; white-space:nowrap; opacity:.75; }
 .empty { color:var(--muted); }
 li.row { display:flex; align-items:center; border-bottom:1px solid #8882; }
 li.row a { flex:1; border:0; }
@@ -179,7 +182,8 @@ class HtmlRenderer:
             was = f" <s>{html.escape(song.key)}</s>" if showing != song.key else ""
             meta.append(f"<span>Key {html.escape(showing)}{was}</span>")
         if song.source:
-            meta.append(f'<a href="{html.escape(song.source)}">source</a>')
+            where = html.escape(song.site) if song.site else "source"
+            meta.append(f'<a href="{html.escape(song.source)}">{where}</a>')
         if meta:
             parts.append(f'<div class="meta">{"".join(meta)}</div>')
         return "".join(parts)
@@ -238,12 +242,13 @@ class HtmlRenderer:
         rows = []
         for item in results:
             link = f"/view?url={urllib.parse.quote(item.url, safe='')}"
-            votes = f"{item.rating:.1f} · {item.votes:,}" if item.votes else "unrated"
+            votes = f"{item.rating:.1f} · {item.votes:,}" if item.votes else ""
             version = f"v{item.version}" if item.version else ""
+            site = f'<span class="site">{html.escape(item.source)}</span>' if item.source else ""
             rows.append(
                 f'<li><a href="{link}"><span>{html.escape(item.title)}</span>'
                 f'<span class="who">{html.escape(item.artist)} {version}</span>'
-                f'<span class="rate">{votes}</span></a></li>'
+                f'{site}<span class="rate">{votes}</span></a></li>'
             )
         return f"<ul>{''.join(rows)}</ul>"
 
@@ -254,11 +259,12 @@ class HtmlRenderer:
         for song in saved:
             capo = f"capo {song.capo}" if song.capo else ""
             label = html.escape(f"{song.title} — {song.artist}" if song.artist else song.title)
+            site = f'<span class="site">{html.escape(song.site)}</span>' if song.site else ""
             rows.append(
                 f'<li class="row"><a href="/song/{song.slug}">'
                 f"<span>{html.escape(song.title)}</span>"
                 f'<span class="who">{html.escape(song.artist)}</span>'
-                f'<span class="rate">{capo}</span></a>'
+                f'{site}<span class="rate">{capo}</span></a>'
                 # POST, not a link: a GET that deletes gets fired by browser
                 # prefetch and by going back in history.
                 f'<form method="post" action="/delete" '

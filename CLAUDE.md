@@ -30,9 +30,11 @@ bibi <ultimate-guitar-url>
    one implementation. No "we'll need it later" — later can add it.
 2. **Zero dependencies.** If something needs a package, that is a reason to
    question the something. The standard library has covered every need so far.
-3. **Site-specific knowledge stays in `ultimate_guitar.py`.** Nothing else in
-   the codebase knows what a `[ch]` tag is, or that Ultimate Guitar exists. When
-   their markup breaks, exactly one file changes.
+3. **Site-specific knowledge stays in its adapter.** `ultimate_guitar.py` and
+   `boite_a_chansons.py`. Nothing else knows what a `[ch]` tag is or that either
+   site exists; `sources.py` only routes URLs. When markup breaks, one file
+   changes. There is deliberately **no abstract base class** -- two classes with
+   the same three methods is what duck typing is for.
 4. **Transposition is display-only.** The stored file is never rewritten, so a
    song always opens untransposed. Chords keep their original columns: a
    transposed chord can be wider or narrower, and the column is what ties it to
@@ -85,7 +87,11 @@ bibi <ultimate-guitar-url>
   `NotAChordPage`. That is correct behaviour, not a parsing failure.
 - **`matches()` must parse the URL, never substring-match.** `evil-ultimate-guitar.com`
   contains `ultimate-guitar.com`.
-- **Scraping UG is against their ToS.** A knowing choice for personal use. Do
+- **Boîte à Chansons anchors chords inline**, between syllables, rather than in
+  columns -- so their alignment is *built* by `lay_out`, not preserved. Their
+  capo is a Roman numeral, their search is a POST, and their page carries a
+  hidden `divPartitionPerso` copy that must not be read.
+- **Scraping these sites is against their ToS.** A knowing choice for personal use. Do
   not build anything that shares, republishes or bulk-downloads.
 
 ## Context files

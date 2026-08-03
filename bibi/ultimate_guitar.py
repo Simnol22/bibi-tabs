@@ -37,6 +37,8 @@ class NotAChordPage(Exception):
 class UltimateGuitar:
     """Fetches a UG page and turns it into a Song."""
 
+    name = "Ultimate Guitar"
+
     def matches(self, url: str) -> bool:
         """Strict on purpose -- the local server fetches whatever this approves.
 
@@ -74,6 +76,7 @@ class UltimateGuitar:
                 version=int(item.get("version") or 0),
                 rating=float(item.get("rating") or 0.0),
                 votes=int(item.get("votes") or 0),
+                source=self.name,
             )
             for item in data.get("results") or []
             if self._is_chord_sheet(item)
@@ -107,6 +110,7 @@ class UltimateGuitar:
             capo=int(view.get("meta", {}).get("capo") or 0),
             key=tab.get("tonality_name") or "",
             source=url,
+            site=self.name,
             body=self._clean(content),
         )
 

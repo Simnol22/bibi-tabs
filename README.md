@@ -48,6 +48,8 @@ has a link back to the library.
 |---|---|
 | `bibi/song.py` | `Song`, `Line`, `SearchResult`, and the chord-line test |
 | `bibi/ultimate_guitar.py` | everything UG-specific, and nothing else is |
+| `bibi/boite_a_chansons.py` | likewise for boiteachansons.net |
+| `bibi/sources.py` | which site owns a URL; searches all of them |
 | `bibi/library.py` | plain text files in a folder |
 | `bibi/render.py` | the song page and the landing page |
 | `bibi/server.py` | localhost-only web app, stdlib `http.server` |
@@ -96,10 +98,19 @@ so there is no JavaScript and it still works on touch and by keyboard.
 tokens parse as chord symbols. It only decides colour, so a wrong answer is a
 mis-coloured line, never mangled text.
 
-**Ultimate Guitar will break this.** Their markup changes. When it does,
-`ultimate_guitar.py` is the only file to fix — that's why it's the only one that
-knows what a `[ch]` tag is. Scraping their pages is also against their terms of
-service; this is a personal tool and that was a deliberate call.
+**Two sites, two shapes.** Ultimate Guitar ships a JSON blob of already-aligned
+text with `[ch]` markers laid over it. Boîte à Chansons ships HTML with chords
+anchored *inline* between syllables, so their columns have to be built rather
+than preserved. Both end up as the same plain chord-over-lyric text.
+
+Search asks both and interleaves the answers, so UG's dozens of versions don't
+bury Boîte à Chansons's handful. Every result, library row and song page says
+which site it came from.
+
+**Their markup will break this.** When it does, one adapter file is the only
+thing to fix — which is why nothing outside them knows what a `[ch]` tag is.
+Scraping is also against these sites' terms of service; this is a personal tool
+and that was a deliberate call.
 
 ## Tests
 
@@ -107,7 +118,7 @@ service; this is a personal tool and that was a deliberate call.
 pytest
 ```
 
-134 tests, no network — the UG page and search parsers are exercised against
+160 tests, no network — the UG page and search parsers are exercised against
 synthetic pages, and the server's page building is tested without sockets.
 
 ## Where songs live
@@ -122,6 +133,6 @@ putting them there. The setting is stored separately, in
 
 ## Not here on purpose
 
-Capo shifting, sync, phone support, a second site. Transposition and diagrams
+Capo shifting, sync, phone support. Transposition, diagrams and a second site
 arrived when they were actually wanted. If one of those turns out to be missed, it can be added to a
 program this small without much drama.

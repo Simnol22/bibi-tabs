@@ -20,7 +20,8 @@ from .config import Config
 from .library import Library
 from .render import HtmlRenderer
 from .song import Song
-from .ultimate_guitar import NotAChordPage, UltimateGuitar
+from .sources import Sources
+from .ultimate_guitar import NotAChordPage
 
 DEFAULT_PORT = 8777
 #: How many fetched songs to keep, so transposing a preview costs nothing.
@@ -43,14 +44,14 @@ class Server:
     def __init__(
         self,
         library: Library | None = None,
-        source: UltimateGuitar | None = None,
+        source: Sources | None = None,
         renderer: HtmlRenderer | None = None,
         port: int = DEFAULT_PORT,
         config: Config | None = None,
     ) -> None:
         self.config = config or Config()
         self.library = library or Library(home=self.config.library)
-        self.source = source or UltimateGuitar()
+        self.source = source or Sources()
         self.renderer = renderer or HtmlRenderer()
         self.port = port
         self._recent: dict[str, Song] = {}

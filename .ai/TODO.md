@@ -88,10 +88,22 @@ in flight. Next step is Simon using it on real songs and reporting what's wrong.
       viewBox finally matches the symbol's
 - [x] `fingers` values of `-1` no longer print as a number
 
+## V1.7 — Boîte à Chansons, done
+
+- [x] `bibi/boite_a_chansons.py` — HTMLParser over `div#divPartition`
+- [x] Inline chord anchors turned into columns via the shared `lay_out`
+- [x] Roman-numeral capo, `tonalite` key, og:title for song and artist
+- [x] POST search; menu links filtered out by path-segment count
+- [x] `bibi/sources.py` — routes a url, searches both, interleaves the results
+- [x] One site failing does not lose the other's results
+- [x] `Song.site` + `SearchResult.source`; labels in search, library, song page
+- [x] `lay_out` extracted so the transposer and the adapter share one rule
+- [x] Verified end to end: fetched, saved with capo 1 from "Capo I", search
+      returned 15 UG + 4 BAC interleaved
+
 ## Possible, only if actually missed
 
 Nothing here is planned. Listed so the reasoning isn't relitigated each time.
 
-- [ ] A second site adapter — `UltimateGuitar` already has `matches()`, so the
-      shape is there; do not add an abstract base class for one implementation
+- [ ] A third site — one more class in the `Sources` list. Still no base class.
 - [ ] `bibi --edit <song>` to open the text file in `$EDITOR`

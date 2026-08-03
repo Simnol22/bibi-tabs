@@ -2,7 +2,7 @@
 
 ## Current State
 
-**V1.6 works.** `bibi` opens a local page: search box, saved songs underneath.
+**V1.7 works.** `bibi` opens a local page: search box, saved songs underneath.
 Search UG, open a result to read it, press **Save** to keep it, `×` to remove
 it. Opening a song no longer saves it.
 
@@ -13,11 +13,31 @@ re-viewing showed "Saved" with no button, delete emptied the library.
 There is also a Settings page (the song folder is configurable, songs move with
 it), a transposer on every song page, and chord diagrams on hover or tap.
 
-134 tests, no network. conda env `bibi-tabs` (python 3.11), zero dependencies.
+160 tests, no network. conda env `bibi-tabs` (python 3.11), zero dependencies.
 
 ## In flight
 
 Nothing.
+
+## Decisions from the second source (2026-08-02)
+
+- **No abstract base class.** Two classes with `matches`/`fetch`/`search`, held
+  in a list. An interface for two implementations is guesswork about the third.
+- **Their format is the mirror image of UG's.** UG gives pre-aligned text with
+  markers laid over it; Boîte à Chansons anchors chords inline between
+  syllables, so the columns must be *built*. That made `lay_out` shared with the
+  transposer instead of duplicated -- both place tokens at columns and push
+  right by the minimum on collision.
+- **Search results are interleaved, not concatenated.** UG returns 15 for a
+  well-known song and BAC 4; appending would bury the smaller site entirely.
+- **A failing site does not lose the other's results.** Each search is caught
+  separately.
+- **`Song.site` is stored, not derived from the URL.** Keeps the renderer from
+  needing to know about sites. Songs saved before this show no label until
+  re-saved -- accepted rather than migrated.
+- **Site labels in all three places**, as Simon suggested: search rows (needed
+  once results interleave), library rows (provenance when a sheet looks wrong),
+  and the song page, where it just names the link that was already there.
 
 ## Decisions from barre labelling (2026-08-02)
 
@@ -163,7 +183,8 @@ Re-check this before debugging anything UG-related; it is the part that rots.
   Untested against a tab-heavy song.
 - A chord line running past the end of its lyric is untested.
 - Search is by title only; there is no artist filter.
-- Only Ultimate Guitar.
+- Boîte à Chansons search has no ratings, so those rows show nothing there.
+- BAC's "Artistes" search section is ignored; only song links are used.
 - The transposer reloads the page, so it loses scroll position on a long song.
 - Only the first (most common) voicing is shown; alternates are in the data.
 - A barre is drawn across its full span even where a higher-fretted finger sits

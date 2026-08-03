@@ -23,7 +23,7 @@ class Line:
 
 @dataclass(frozen=True)
 class SearchResult:
-    """One candidate sheet. Deliberately says nothing about where it came from."""
+    """One candidate sheet, and which site is offering it."""
 
     title: str
     artist: str
@@ -31,6 +31,7 @@ class SearchResult:
     version: int = 0
     rating: float = 0.0
     votes: int = 0
+    source: str = ""
 
 
 @dataclass(frozen=True)
@@ -40,10 +41,13 @@ class Song:
     capo: int = 0
     key: str = ""
     source: str = ""
+    #: Which site it came from, as a name. Blank on songs saved before there
+    #: was more than one; they simply show no label until re-saved.
+    site: str = ""
     body: str = ""
 
     #: Header keys written to disk, in this order.
-    _FIELDS = ("title", "artist", "capo", "key", "source")
+    _FIELDS = ("title", "artist", "capo", "key", "source", "site")
 
     @property
     def lines(self) -> list[Line]:
@@ -75,5 +79,6 @@ class Song:
             capo=int(values.get("capo") or 0),
             key=values.get("key", ""),
             source=values.get("source", ""),
+            site=values.get("site", ""),
             body=body,
         )

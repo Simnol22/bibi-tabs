@@ -81,6 +81,20 @@ def transpose_key(key: str, semitones: int) -> str:
     return min(candidates, key=rank) if candidates else key
 
 
+def lay_out(placements: list[tuple[int, str]]) -> str:
+    """Put each token at its column, pushing right by the minimum on collision.
+
+    Shared by the transposer (a shifted chord can be wider than the one it
+    replaces) and by sources that anchor chords inline rather than by column.
+    Letting one collision shove everything after it would drift the whole line.
+    """
+    out = ""
+    for column, token in placements:
+        start = column if not out else max(column, len(out) + 1)
+        out = out.ljust(start) + token
+    return out
+
+
 @dataclass(frozen=True)
 class Chord:
     root: str
@@ -141,8 +155,6 @@ class Transposer:
         """
         if self.semitones == 0:
             return text
-        out = ""
-        for match in re.finditer(r"\S+", text):
-            start = match.start() if not out else max(match.start(), len(out) + 1)
-            out = out.ljust(start) + self.token(match.group())
-        return out
+        return lay_out(
+            [(m.start(), self.token(m.group())) for m in re.finditer(r"\S+", text)]
+        )

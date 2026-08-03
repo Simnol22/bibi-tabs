@@ -33,6 +33,8 @@ bibi/chords.py           Chord, Transposer, spelling. Pure, no I/O.
 bibi/fingering.py        Shape lookup, chords-db (MIT) in data/
 bibi/diagram.py          Diagrams — SVG <symbol> per distinct chord
 bibi/ultimate_guitar.py  UltimateGuitar — the only file that knows about UG
+bibi/boite_a_chansons.py BoiteAChansons — likewise for boiteachansons.net
+bibi/sources.py          Sources — routes a url, searches every site
 bibi/library.py          Library — text files in a folder
 bibi/render.py           HtmlRenderer — song page and landing page
 bibi/server.py           Server — 127.0.0.1 only, stdlib http.server
@@ -49,8 +51,10 @@ bibi/cli.py              App — wires them together
 2. **Never reflow the sheet.** A chord means something only because of the
    column it occupies. Anything that trims, wraps, collapses whitespace or
    re-indents the body is a bug, however tidy the result looks.
-3. **Site knowledge stays in `ultimate_guitar.py`.** Nothing else knows what a
-   `[ch]` tag is or that UG exists. Their markup will break; one file changes.
+3. **Site knowledge stays in its adapter.** Nothing outside `ultimate_guitar.py`
+   and `boite_a_chansons.py` knows what a `[ch]` tag is or that either site
+   exists; `sources.py` only routes. **No abstract base class** -- two classes
+   with the same three methods is what duck typing is for.
 4. **Songs are plain text**, readable without this program. The library outlives
    the tool. Default `~/.bibi-tabs/`, moveable. Never default it into the repo --
    copyrighted content does not belong in git.
@@ -74,8 +78,8 @@ bibi/cli.py              App — wires them together
   does not own.
 - Do not auto-save a song just because it was opened.
 - Do not add a dependency without asking.
-- Do not add configuration, plugin systems, or a second source adapter until
-  there is a second source.
+- Do not add configuration or plugin systems. Adding a third source means one
+  more class in the `Sources` list, nothing else.
 - Do not make anything load-bearing depend on the chord-line heuristic.
 - Do not build sharing, republishing, or bulk downloading. Personal tool.
 
@@ -91,6 +95,11 @@ bibi/cli.py              App — wires them together
 - Search results include paid "Pro" entries with no sheet; filter on
   `type == "Chords"` and host `tabs.ultimate-guitar.com`.
 - Slugs fold accents (`Drôle` → `drole`); dropping them gives `dr-le`.
+- Boîte à Chansons anchors chords inline between syllables, so `lay_out` builds
+  their columns. Roman-numeral capo, POST search, and a hidden
+  `divPartitionPerso` copy on the page that must not be read.
+- `Song.site` is blank on songs saved before there were two sites; they show no
+  label until re-saved. Deliberate, not a migration.
 - Enharmonic spelling comes from the target key on the circle of fifths, not a
   fixed table. Stops at twelve practical names: Gb major prints `B`, not `Cb`.
 - Markup inside `<pre>` must add no characters, or columns break and copying

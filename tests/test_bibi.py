@@ -722,6 +722,222 @@ class TestChangingTheLibraryFolder:
         assert 'href="/settings"' in self._server(tmp_path).index_page()
 
 
+def _bac_page(lines, title="Chanson (Nobody) - Paroles et accords - x", capo="II", key="Db"):
+    """A minimal stand-in for a boiteachansons.net page."""
+    body = "".join(lines)
+    return (
+        f'<meta property="og:title" content="{title}">'
+        f'<input type="hidden" id="tonalite" name="tonalite" value="{key}">'
+        f'<input type="hidden" id="capo" name="capo" value="{capo}">'
+        '<div style="display:none;" id="divPartitionPerso" class="divPartition">'
+        '<div class="pL">ignored, this is the hidden edit copy</div></div>'
+        f'<div id="divPartition" class="divPartition">{body}</div>'
+    )
+
+
+def _pl(*pieces):
+    inner = "".join(
+        f'<span class="a" data-a="{p[1:]}"></span>' if p.startswith("@") else p
+        for p in pieces
+    )
+    return f'<div class="pL">{inner}</div>'
+
+
+class TestBoiteAChansons:
+    def _parse(self, page, url="https://www.boiteachansons.net/partitions/a/b"):
+        from bibi.boite_a_chansons import BoiteAChansons
+
+        return BoiteAChansons().parse(page, url)
+
+    def test_builds_columns_from_inline_anchors(self):
+        # Their chords are anchored between syllables rather than positioned in
+        # a column, so the alignment has to be constructed: F belongs above the
+        # third word, which starts at column 10.
+        song = self._parse(_bac_page([_pl("@Em", "aaaa bbbb ", "@F", "cccc")]))
+        chords, lyric = song.body.split("\n")
+        assert lyric == "aaaa bbbb cccc"
+        assert [(m.group(), m.start()) for m in re.finditer(r"\S+", chords)] == [
+            ("Em", 0),
+            ("F", 10),
+        ]
+        assert lyric[10] == "c"
+
+    def test_a_line_with_no_chords_stays_a_single_line(self):
+        assert self._parse(_bac_page([_pl("aaaa bbbb")])).body == "aaaa bbbb"
+
+    def test_reads_the_metadata(self):
+        song = self._parse(_bac_page([_pl("@C", "aaaa")]))
+        assert (song.title, song.artist) == ("Chanson", "Nobody")
+        assert song.key == "Db"
+        assert song.site == "Boîte à Chansons"
+
+    def test_reads_a_roman_numeral_capo(self):
+        # They write "Capo III", not "Capo 3".
+        assert self._parse(_bac_page([_pl("@C", "a")], capo="III")).capo == 3
+        assert self._parse(_bac_page([_pl("@C", "a")], capo="")).capo == 0
+
+    def test_ignores_the_hidden_edit_copy(self):
+        assert "hidden edit copy" not in self._parse(_bac_page([_pl("@C", "aaaa")])).body
+
+    def test_section_labels_survive_as_their_own_lines(self):
+        page = _bac_page(['<div class="pLS">Refrain</div>', _pl("@C", "aaaa")])
+        assert "Refrain" in self._parse(page).body.split("\n")
+
+    def test_a_page_with_no_sheet_is_rejected(self):
+        from bibi.boite_a_chansons import BoiteAChansons
+
+        with pytest.raises(NotAChordPage):
+            BoiteAChansons().parse("<html><body>rien</body></html>")
+
+    @pytest.mark.parametrize(
+        "url",
+        ["https://www.boiteachansons.net/partitions/a/b", "https://boiteachansons.net/x"],
+    )
+    def test_accepts_its_own_urls(self, url):
+        from bibi.boite_a_chansons import BoiteAChansons
+
+        assert BoiteAChansons().matches(url)
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://evil-boiteachansons.net/x",  # substring matching would pass this
+            "https://boiteachansons.net.evil.test/x",
+            "https://tabs.ultimate-guitar.com/tab/x",
+            "file:///etc/passwd",
+        ],
+    )
+    def test_rejects_everything_else(self, url):
+        from bibi.boite_a_chansons import BoiteAChansons
+
+        assert not BoiteAChansons().matches(url)
+
+
+class TestBoiteAChansonsSearch:
+    def _results(self, page):
+        from bibi.boite_a_chansons import BoiteAChansons
+
+        return BoiteAChansons()._results(page)
+
+    def _link(self, href, title):
+        return f'<a data="on-affiche" href="{href}" title="{title}">x</a>'
+
+    def test_reads_title_and_artist_from_the_link(self):
+        page = self._link(
+            "https://www.boiteachansons.net/partitions/nobody/chanson",
+            "Chanson - Nobody - Paroles et accords",
+        )
+        [result] = self._results(page)
+        assert (result.title, result.artist) == ("Chanson", "Nobody")
+        assert result.source == "Boîte à Chansons"
+
+    def test_skips_the_menu_links_that_share_the_prefix(self):
+        # nouveautes and friends live under /partitions/ with one path segment.
+        page = (
+            self._link("https://www.boiteachansons.net/partitions/nouveautes", "Liste")
+            + self._link("https://www.boiteachansons.net/partitions/top50Chansons", "Top")
+            + self._link(
+                "https://www.boiteachansons.net/partitions/nobody/chanson",
+                "Chanson - Nobody - Paroles et accords",
+            )
+        )
+        assert [r.title for r in self._results(page)] == ["Chanson"]
+
+    def test_keeps_a_title_that_contains_a_dash(self):
+        page = self._link(
+            "https://www.boiteachansons.net/partitions/nobody/x",
+            "Un - Deux - Trois - Nobody - Paroles et accords",
+        )
+        [result] = self._results(page)
+        assert (result.title, result.artist) == ("Un - Deux - Trois", "Nobody")
+
+    def test_the_same_song_twice_is_listed_once(self):
+        link = self._link(
+            "https://www.boiteachansons.net/partitions/nobody/chanson",
+            "Chanson - Nobody - Paroles et accords",
+        )
+        assert len(self._results(link + link)) == 1
+
+
+class TestSources:
+    def _sources(self):
+        from bibi.sources import Sources
+
+        return Sources()
+
+    def test_routes_a_url_to_the_site_that_owns_it(self):
+        sources = self._sources()
+        assert sources.name_for("https://tabs.ultimate-guitar.com/tab/x") == "Ultimate Guitar"
+        assert sources.name_for("https://www.boiteachansons.net/partitions/a/b") == "Boîte à Chansons"
+        assert sources.name_for("https://evil.test/x") == ""
+
+    def test_refuses_a_url_no_source_owns(self):
+        assert not self._sources().matches("https://evil.test/x")
+        with pytest.raises(NotAChordPage):
+            self._sources().fetch("https://evil.test/x")
+
+    def test_interleaves_so_neither_site_buries_the_other(self):
+        from bibi.song import SearchResult
+        from bibi.sources import Sources
+
+        def stub(name, count):
+            class Stub:
+                def search(self, query):
+                    return [
+                        SearchResult(title=f"{name}{i}", artist="", url=f"u{i}", source=name)
+                        for i in range(count)
+                    ]
+
+            return Stub()
+
+        merged = Sources([stub("A", 4), stub("B", 2)]).search("x")
+        assert [r.source for r in merged] == ["A", "B", "A", "B", "A", "A"]
+
+    def test_one_site_being_down_does_not_lose_the_other(self):
+        from bibi.song import SearchResult
+        from bibi.sources import Sources
+
+        class Broken:
+            def search(self, query):
+                raise OSError("no network")
+
+        class Fine:
+            def search(self, query):
+                return [SearchResult(title="ok", artist="", url="u", source="Fine")]
+
+        assert [r.title for r in Sources([Broken(), Fine()]).search("x")] == ["ok"]
+
+
+class TestSourceLabels:
+    """Which site a sheet came from, in the three places it matters."""
+
+    def test_search_results_say_which_site(self):
+        from bibi.song import SearchResult
+
+        page = HtmlRenderer().index(
+            [], "q", [SearchResult(title="T", artist="A", url="u", source="Boîte à Chansons")]
+        )
+        assert "Boîte à Chansons" in page
+
+    def test_the_library_shows_provenance(self):
+        page = HtmlRenderer().index([Song(title="T", site="Boîte à Chansons")])
+        assert "Boîte à Chansons" in page
+
+    def test_the_song_page_names_its_source_link(self):
+        page = HtmlRenderer().render(
+            Song(title="T", source="https://example.test/x", site="Boîte à Chansons")
+        )
+        assert ">Boîte à Chansons</a>" in page
+
+    def test_an_older_song_without_a_site_still_links_out(self):
+        page = HtmlRenderer().render(Song(title="T", source="https://example.test/x"))
+        assert ">source</a>" in page
+
+    def test_the_site_round_trips_through_the_file(self):
+        song = Song(title="T", site="Boîte à Chansons", body="C\naaaa")
+        assert Song.from_text(song.to_text()).site == "Boîte à Chansons"
+
+
 class TestLibrary:
     def test_saves_loads_and_finds(self, tmp_path):
         library = Library(home=tmp_path)
