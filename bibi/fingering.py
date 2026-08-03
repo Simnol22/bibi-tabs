@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-from .chords import Chord, pitch_class
+from .chords import chord_in, pitch_class
 
 _DATA = Path(__file__).parent / "data" / "guitar.json"
 
@@ -50,7 +50,7 @@ def _db() -> dict[str, list[dict]]:
 @lru_cache(maxsize=512)
 def shapes(token: str) -> tuple[Shape, ...]:
     """Every voicing the dataset knows, most common first. Empty if unknown."""
-    chord = Chord.parse(token)
+    chord = chord_in(token)
     if chord is None:
         return ()
 

@@ -65,27 +65,28 @@ class Song:
         header = "\n".join(f"{name}: {getattr(self, name)}" for name in self._FIELDS)
         return f"{header}\n\n{self.body}"
 
-    def edited(self, chords: dict[str, str]) -> Song:
-        """A copy with its chord lines replaced by edited ones.
+    def edited(self, edits: dict[str, str]) -> Song:
+        """A copy with its lines replaced by edited ones.
 
-        Keys are `c{i}` for the chord line already at index `i`, and `n{i}` for
-        a new chord line to insert above the line at `i`. A blank value removes
-        the line -- that is how a chord is deleted.
+        Keys are `l{i}` for the line already at index `i` and `n{i}` for a new
+        line inserted above it. A blank value removes the line -- that is how a
+        chord is deleted.
 
-        Lyrics are never touched: only chord lines are editable, so a stray
-        keystroke cannot damage the words.
+        Every line is editable, deliberately. Locking lyrics down sounded safer
+        until a mistyped chord stopped reading as a chord line: the line then
+        had no field, and the typo could not be undone from the app at all.
         """
         out: list[str] = []
         for i, line in enumerate(self.body.split("\n")):
-            if looks_like_chords(line):
-                replacement = chords.get(f"c{i}", line).rstrip()
-                if replacement.strip():
-                    out.append(replacement)
-                continue
-            added = chords.get(f"n{i}", "").rstrip()
+            added = edits.get(f"n{i}", "").rstrip()
             if added.strip():
                 out.append(added)
-            out.append(line)
+
+            kept = edits.get(f"l{i}", line).rstrip()
+            # A blank line was blank to begin with: that is stanza spacing, not
+            # a deletion.
+            if kept.strip() or not line.strip():
+                out.append(kept)
         return replace(self, body="\n".join(out))
 
     @classmethod

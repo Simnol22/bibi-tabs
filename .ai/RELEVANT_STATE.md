@@ -13,11 +13,27 @@ re-viewing showed "Saved" with no button, delete emptied the library.
 There is also a Settings page (the song folder is configurable, songs move with
 it), a transposer on every song page, and chord diagrams on hover or tap.
 
-194 tests, no network. conda env `bibi-tabs` (python 3.11), zero dependencies.
+205 tests, no network. conda env `bibi-tabs` (python 3.11), zero dependencies.
 
 ## In flight
 
 Nothing.
+
+## Two bugs from one reported song (2026-08-02)
+
+Simon hit a line rendering white and uneditable, and separately found that a
+typo froze a line.
+
+1. **`(Dmaj7)` did not parse.** A chord wrapped in brackets means "optional" and
+   is common. My parser only allowed brackets *inside* a symbol (`C(add9)`), so
+   `G  (Dmaj7)` scored 1/2 and the line stopped being a chord line. Same scan
+   turned up `(D)` and `|`; bar lines now count neither way, since counting them
+   against a line drags it under the threshold.
+2. **A typo froze the line.** Once a line stopped reading as chords it had no
+   field, so the mistake could not be undone from inside the app. The fix
+   reverses an earlier decision of mine: **every line is editable now**, lyrics
+   included. Locking lyrics down was never asked for, and the lesson is general
+   -- a classifier must never decide whether something can be fixed.
 
 ## The layout shift while editing (2026-08-02)
 

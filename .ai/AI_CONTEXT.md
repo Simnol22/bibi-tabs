@@ -67,9 +67,10 @@ bibi/cli.py              App — wires them together
    that deletes gets fired by prefetch and by back-navigation.
 9. **Reading is not keeping.** `/view` renders without saving. Only the Save
    button writes to the library.
-10. **Editing touches chord lines only, in the stored key.** Lyrics have no
-    field. Unlocking discards the transposition, or an edit would re-key the
-    song. Blank field = delete that chord line.
+10. **Every line is editable, in the stored key.** A classifier must never
+    decide whether something can be fixed -- a mistyped chord used to make its
+    line unclassifiable and therefore frozen. Unlocking discards the
+    transposition. Blank field = delete the line.
 
 ## Negative constraints — do not
 
@@ -98,6 +99,8 @@ bibi/cli.py              App — wires them together
 - Search results include paid "Pro" entries with no sheet; filter on
   `type == "Chords"` and host `tabs.ultimate-guitar.com`.
 - Slugs fold accents (`Drôle` → `drole`); dropping them gives `dr-le`.
+- `(Dmaj7)` is an optional chord and parses; `C(add9)` keeps its inner
+  brackets. `|`, `:`, `/`, `%` count neither way in the chord-line test.
 - Boîte à Chansons anchors chords inline between syllables, so `lay_out` builds
   their columns. Roman-numeral capo, POST search, and a hidden
   `divPartitionPerso` copy on the page that must not be read.

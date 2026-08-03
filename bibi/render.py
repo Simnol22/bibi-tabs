@@ -11,7 +11,7 @@ import re
 import urllib.parse
 from pathlib import Path  # noqa: TC003 - used in signatures at runtime
 
-from .chords import MAX_TRANSPOSE, Chord, Transposer, transpose_key
+from .chords import MAX_TRANSPOSE, Transposer, chord_in, transpose_key
 from .diagram import HEIGHT, WIDTH, Diagrams
 from .song import SearchResult, Song, looks_like_chords
 
@@ -105,6 +105,7 @@ nav a { text-decoration:none; }
 .chl { display:block; font:inherit; line-height:inherit; padding:0; margin:0;
        border:0; border-radius:0; background:transparent; color:var(--accent);
        font-weight:600; caret-color:var(--accent); }
+.chl.lyr { color:var(--fg); font-weight:400; }
 .chl:hover { background:color-mix(in srgb, var(--accent) 8%, transparent); }
 .chl:focus { outline:0; background:color-mix(in srgb, var(--accent) 14%, transparent); }
 .hint { color:var(--muted); font-size:.85rem; max-width:44rem; }
@@ -164,14 +165,13 @@ class HtmlRenderer:
         for i, line in enumerate(lines):
             if line.strip() == "":
                 rows.append('<div class="lyr">&nbsp;</div>')
-            elif looks_like_chords(line):
-                rows.append(self._chord_field(f"c{i}", line, width))
-            else:
+                continue
+            chords = looks_like_chords(line)
+            if not chords and (i == 0 or not looks_like_chords(lines[i - 1])):
                 # An empty field only where there is no chord line already, or
                 # every lyric would be pushed a row away from its own chords.
-                if i == 0 or not looks_like_chords(lines[i - 1]):
-                    rows.append(self._chord_field(f"n{i}", "", width))
-                rows.append(f'<div class="lyr">{html.escape(line)}</div>')
+                rows.append(self._chord_field(f"n{i}", "", width))
+            rows.append(self._chord_field(f"l{i}", line, width, chords))
 
         return (
             "<!doctype html>\n"
@@ -191,11 +191,12 @@ class HtmlRenderer:
             "</form></body></html>\n"
         )
 
-    def _chord_field(self, name: str, value: str, width: int) -> str:
+    def _chord_field(self, name: str, value: str, width: int, chords: bool = True) -> str:
+        """A line as an editable field. Chord lines are coloured, lyrics are not."""
         return (
-            f'<input class="chl" name="{name}" value="{html.escape(value)}" '
-            f'spellcheck="false" autocapitalize="off" autocomplete="off" '
-            f'style="width:{width}ch">'
+            f'<input class="chl{"" if chords else " lyr"}" name="{name}" '
+            f'value="{html.escape(value)}" spellcheck="false" '
+            f'autocapitalize="off" autocomplete="off" style="width:{width}ch">'
         )
 
     def _transposer(self, url: str | None, semitones: int) -> str:
@@ -381,7 +382,7 @@ class HtmlRenderer:
             out.append(html.escape(line[cursor : match.start()]))
             token = match.group()
             ref = diagrams.add(token)
-            if Chord.parse(token) is None:
+            if chord_in(token) is None:
                 # Not a chord at all -- an annotation like "x4", or a typo made
                 # while editing. Muted, so a mistake is visible once locked.
                 out.append(f'<span class="nc">{html.escape(token)}</span>')

@@ -37,6 +37,49 @@ class TestChordLineDetection:
         assert looks_like_chords("C G Am F hey")  # 4/5
 
 
+class TestBracketedAndPunctuation:
+    """Real sheets decorate chord lines. Found in a live song, where
+    `G  (Dmaj7)` scored 1/2 and the whole line stopped reading as chords --
+    it rendered as a lyric and could not be edited."""
+
+    def test_a_chord_in_brackets_is_still_a_chord(self):
+        from bibi.chords import chord_in
+
+        assert chord_in("(Dmaj7)") == chord_in("Dmaj7")
+        assert chord_in("[Am]") == chord_in("Am")
+
+    def test_brackets_inside_a_chord_are_left_alone(self):
+        from bibi.chords import Chord, chord_in
+
+        assert chord_in("C(add9)") == Chord.parse("C(add9)")
+
+    def test_a_line_of_optional_chords_reads_as_chords(self):
+        assert looks_like_chords("G      (Dmaj7)")
+        assert looks_like_chords("(D)")
+
+    def test_bar_lines_count_neither_way(self):
+        # Counting them against the line would drag it under the threshold.
+        assert looks_like_chords("| C | G | Am |")
+        assert looks_like_chords("C  /  /  G")
+        assert not looks_like_chords("|")
+
+    def test_transposing_keeps_the_brackets(self):
+        from bibi.chords import Transposer
+
+        assert Transposer.for_song("C", "", 2).line("(Dmaj7)") == "(Emaj7)"
+        assert Transposer.for_song("C", "", 2).line("| C | G |") == "| D | A |"
+
+    def test_a_bracketed_chord_still_has_a_shape(self):
+        from bibi.fingering import shapes
+
+        assert shapes("(Dmaj7)") == shapes("Dmaj7")
+
+    def test_a_bracketed_chord_is_not_muted_as_a_non_chord(self):
+        page = HtmlRenderer().render(Song(title="T", body="G      (Dmaj7)\naaaa bbbb"))
+        assert 'class="nc"' not in page
+        assert 'class="c"' in page
+
+
 class TestChordParsing:
     def test_splits_a_chord_into_its_parts(self):
         from bibi.chords import Chord
@@ -933,11 +976,11 @@ class TestEditingChords:
 
     def test_moving_a_chord_is_just_moving_its_column(self):
         song = self._song("C\naaaa bbbb")
-        assert song.edited({"c0": "     C"}).body == "     C\naaaa bbbb"
+        assert song.edited({"l0": "     C"}).body == "     C\naaaa bbbb"
 
     def test_clearing_a_field_removes_the_chord_line(self):
         song = self._song("C   G\naaaa bbbb\nF\ncccc")
-        assert song.edited({"c0": "   "}).body == "aaaa bbbb\nF\ncccc"
+        assert song.edited({"l0": "   "}).body == "aaaa bbbb\nF\ncccc"
 
     def test_typing_into_an_empty_field_adds_a_chord_line(self):
         song = self._song("aaaa bbbb")
@@ -945,18 +988,12 @@ class TestEditingChords:
 
     def test_adding_and_removing_in_one_pass(self):
         song = self._song("C\naaaa\nbbbb")
-        assert song.edited({"c0": "", "n2": "  G"}).body == "aaaa\n  G\nbbbb"
+        assert song.edited({"l0": "", "n2": "  G"}).body == "aaaa\n  G\nbbbb"
 
-    def test_lyrics_are_never_touched(self):
-        # There is no field for them, so nothing submitted can reach them.
+    def test_untouched_lines_come_back_unchanged(self):
         body = "C\naaaa bbbb\n\ncccc   dddd"
-        song = self._song(body)
-        edited = song.edited({"c0": "G", "n3": "F"})
-        assert [line for line in edited.body.split("\n") if not looks_like_chords(line)] == [
-            "aaaa bbbb",
-            "",
-            "cccc   dddd",
-        ]
+        edited = self._song(body).edited({"l0": "G"})
+        assert edited.body == "G\naaaa bbbb\n\ncccc   dddd"
 
     def test_blank_lines_and_spacing_survive(self):
         body = "C\naaaa\n\n\nbbbb"
@@ -968,14 +1005,14 @@ class TestEditingChords:
 
     def test_trailing_spaces_are_trimmed_but_leading_ones_are_not(self):
         # Leading spaces are the chord's position; trailing ones are noise.
-        assert self._song("C\naaaa").edited({"c0": "   C   "}).body == "   C\naaaa"
+        assert self._song("C\naaaa").edited({"l0": "   C   "}).body == "   C\naaaa"
 
     def test_the_edit_survives_a_round_trip_to_disk(self, tmp_path):
         library = Library(home=tmp_path)
         library.save(self._song("C\naaaa bbbb"))
         song = library.load(library.paths()[0])
 
-        library.save(song.edited({"c0": "      C"}))
+        library.save(song.edited({"l0": "      C"}))
 
         assert library.load(library.paths()[0]).body == "      C\naaaa bbbb"
 
@@ -984,9 +1021,10 @@ class TestTheEditScreen:
     def _page(self, body):
         return HtmlRenderer().edit(Song(title="T", body=body))
 
-    def test_every_chord_line_gets_a_field(self):
+    def test_every_line_gets_a_field(self):
         page = self._page("C   G\naaaa\nF\nbbbb")
-        assert 'name="c0"' in page and 'name="c2"' in page
+        for i in range(4):
+            assert f'name="l{i}"' in page
 
     def test_every_lyric_without_chords_gets_an_empty_one(self):
         page = self._page("aaaa\nbbbb")
@@ -1063,6 +1101,35 @@ class TestUnrecognisedTokens:
         assert 'class="c"' not in page
 
 
+class TestATypoCannotFreezeALine:
+    """Locking lyrics down sounded safer until a mistyped chord stopped reading
+    as a chord line: the line then had no field at all, so the typo could not be
+    undone from inside the app."""
+
+    def test_a_line_that_no_longer_reads_as_chords_is_still_editable(self):
+        # "g" lowercase is not a chord, so this line reads as a lyric now.
+        body = "g   Dmaj7\naaaa bbbb"
+        assert not looks_like_chords(body.split("\n")[0])
+
+        page = HtmlRenderer().edit(Song(title="T", body=body))
+        assert 'name="l0"' in page
+        assert 'value="g   Dmaj7"' in page
+
+    def test_and_the_fix_can_be_saved(self):
+        song = Song(title="T", body="g   Dmaj7\naaaa bbbb")
+        fixed = song.edited({"l0": "G   Dmaj7"})
+        assert looks_like_chords(fixed.body.split("\n")[0])
+
+    def test_a_lyric_field_is_not_dressed_up_as_a_chord(self):
+        page = HtmlRenderer().edit(Song(title="T", body="C\naaaa bbbb"))
+        assert 'class="chl" name="l0"' in page  # chords
+        assert 'class="chl lyr" name="l1"' in page  # words
+
+    def test_editing_a_lyric_is_allowed_now(self):
+        song = Song(title="T", body="C\naaaa bbbb")
+        assert song.edited({"l1": "cccc dddd"}).body == "C\ncccc dddd"
+
+
 class TestLockAndUnlock:
     def _server(self, tmp_path):
         from bibi.server import Server
@@ -1077,7 +1144,7 @@ class TestLockAndUnlock:
 
     def test_unlocking_shows_the_editor(self, tmp_path):
         page = self._server(tmp_path).song_page("t", editing=True)
-        assert 'action="/edit"' in page and 'name="c0"' in page
+        assert 'action="/edit"' in page and 'name="l0"' in page
 
     def test_unlocking_ignores_the_transposition(self, tmp_path):
         # The whole trap: editing a view shifted to D must not save D chords.
@@ -1088,13 +1155,13 @@ class TestLockAndUnlock:
     def test_locking_saves_and_reloads_changed(self, tmp_path):
         server = self._server(tmp_path)
 
-        assert server.edit_song("t", {"c0": "      C"}) == "t"
+        assert server.edit_song("t", {"l0": "      C"}) == "t"
 
         assert "      C" in server.library.load(server.library.paths()[0]).body
         assert 'class="c"' in server.song_page("t")
 
     def test_editing_a_song_that_is_gone_is_not_a_crash(self, tmp_path):
-        assert self._server(tmp_path).edit_song("absent", {"c0": "C"}) is None
+        assert self._server(tmp_path).edit_song("absent", {"l0": "C"}) is None
 
 
 class TestCliWiring:

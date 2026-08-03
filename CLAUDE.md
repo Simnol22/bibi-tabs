@@ -55,9 +55,11 @@ bibi <ultimate-guitar-url>
 9. **Anything that changes state is a POST.** Saving and deleting are forms,
    never links. A GET that deletes a file gets fired by browser prefetch and by
    back-navigation.
-10. **Editing is chord lines only, in the stored key.** Lyrics have no field,
-    so nothing submitted can reach them. Unlocking ignores the transposition:
-    saving an edit made against a shifted view would re-key the song.
+10. **Every line is editable, in the stored key.** Locking lyrics down sounded
+    safer until a mistyped chord stopped reading as a chord line: the line then
+    had no field, and the typo could not be undone from inside the app. A
+    classifier must never decide whether something can be fixed. Unlocking
+    still ignores the transposition, or an edit would re-key the song.
 11. **Reading is not keeping.** `/view` renders without saving; only the Save
    button writes to the library.
 
@@ -88,6 +90,10 @@ bibi <ultimate-guitar-url>
 - **`<form>` must impose no layout.** The edit screen wraps the whole page in
   one, so a global `form { display:flex }` lays nav, header and sheet out in a
   row. Only `.bar` is flex.
+- **A chord can be wrapped in brackets** -- `(Dmaj7)` means an optional chord,
+  and is distinct from brackets *inside* a symbol like `C(add9)`. Bar lines and
+  beat slashes count neither way in the chord-line test. Both were found in a
+  real song, where `G  (Dmaj7)` scored 1/2 and the line stopped being chords.
 - **The chord-line test is a heuristic** (≥80% of tokens parse as chords). It
   only picks colour. Do not let anything load-bearing depend on it.
 - **Pro tabs and tab-type pages have no `wiki_tab.content`** and raise

@@ -89,12 +89,12 @@ class Server:
             edit_url=f"/song/{quoted}?edit=1",
         )
 
-    def edit_song(self, slug: str, chords: dict[str, str]) -> str | None:
+    def edit_song(self, slug: str, edits: dict[str, str]) -> str | None:
         """Save edited chord lines. Returns the slug, or None if it is gone."""
         path = self.library.path_for_slug(slug)
         if path is None:
             return None
-        self.library.save(self.library.load(path).edited(chords))
+        self.library.save(self.library.load(path).edited(edits))
         return slug
 
     def view_page(self, url: str, semitones: int = 0) -> str:
@@ -227,8 +227,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._see_other("/")
         elif path == "/edit":
             slug = form.get("slug", [""])[0]
-            chords = {k: v[0] for k, v in form.items() if k[:1] in ("c", "n") and k != "slug"}
-            saved = app.edit_song(slug, chords)
+            edits = {k: v[0] for k, v in form.items() if k[:1] in ("l", "n")}
+            saved = app.edit_song(slug, edits)
             self._see_other(f"/song/{urllib.parse.quote(saved)}") if saved else self._oops(
                 404, "No such song."
             )

@@ -30,16 +30,39 @@ _CHORD = re.compile(rf"^({_ROOT})({_QUALITY})({_EXT})(?:/({_ROOT}))?$")
 
 #: A line counts as chords when this share of its tokens parse as chord symbols.
 _CHORD_LINE_SHARE = 0.8
+#: Bar lines, repeat marks and beat slashes. Neither chord nor word.
+_BAR = re.compile(r"^[|:/%]+$")
 
 MAX_TRANSPOSE = 11
 
 
+def split_wrap(token: str) -> tuple[str, str, str]:
+    """Peel a bracket that wraps a whole chord: `(Dmaj7)` is an optional Dmaj7.
+
+    Distinct from a bracket *inside* a chord, as in `C(add9)`, which is part of
+    the symbol and is left alone.
+    """
+    for opener, closer in (("(", ")"), ("[", "]")):
+        if len(token) > 2 and token.startswith(opener) and token.endswith(closer):
+            return opener, token[1:-1], closer
+    return "", token, ""
+
+
+def chord_in(token: str) -> Chord | None:
+    """The chord a token carries, ignoring any bracket around it."""
+    return Chord.parse(split_wrap(token)[1])
+
+
 def looks_like_chords(text: str) -> bool:
-    """True when a line is a chord line rather than a lyric."""
-    tokens = text.split()
+    """True when a line is a chord line rather than a lyric.
+
+    Bar lines and beat marks count neither way -- "| C | G |" is a chord line,
+    and counting the bars against it would drag it under the threshold.
+    """
+    tokens = [t for t in text.split() if not _BAR.match(t)]
     if not tokens:
         return False
-    hits = sum(1 for token in tokens if _CHORD.match(token))
+    hits = sum(1 for token in tokens if chord_in(token))
     return hits / len(tokens) >= _CHORD_LINE_SHARE
 
 
@@ -142,8 +165,11 @@ class Transposer:
         return cls(semitones, flats=signature < 0)
 
     def token(self, token: str) -> str:
-        chord = Chord.parse(token)
-        return token if chord is None else str(chord.transposed(self.semitones, self.flats))
+        opener, core, closer = split_wrap(token)
+        chord = Chord.parse(core)
+        if chord is None:
+            return token
+        return f"{opener}{chord.transposed(self.semitones, self.flats)}{closer}"
 
     def line(self, text: str) -> str:
         """Re-anchor every chord at the column it started in.

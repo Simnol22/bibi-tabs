@@ -133,6 +133,15 @@ in flight. Next step is Simon using it on real songs and reporting what's wrong.
       global, and the edit screen wraps the whole page in a form
 - [x] Non-chord tokens on a chord line render muted, so typos show once locked
 
+## V1.11 — bracketed chords, and no more frozen lines, done
+
+- [x] `(Dmaj7)` and `[Am]` parse as chords; `C(add9)` keeps its inner brackets
+- [x] Bar lines and beat slashes count neither way in the chord-line test
+- [x] Transposing preserves the brackets: `(Dmaj7)` +2 is `(Emaj7)`
+- [x] **Every line is editable.** A mistyped chord used to make its line
+      unclassifiable, which removed its field and froze the typo in place
+- [x] Verified on the reported song: the line reads as chords, all lines editable
+
 ## Possible, only if actually missed
 
 Nothing here is planned. Listed so the reasoning isn't relitigated each time.
